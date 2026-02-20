@@ -1,11 +1,11 @@
 const metadata = {
-  title: 'Mevolut | Simple B2C Fintech for your Money',
+  title: 'Tarek Ferdous | Software Engineer',
   description:
-    'Manage your money the easy way with Mevolut. Track expenses, send money, and grow your savings – safely and simply. Sign up free today!',
+    'I am a software engineer with experience in building web applications. I am passionate about building software that helps people in their daily lives. I am also a contributor to open source projects.',
   domain: 'pageai.pro',
   logoTitle: '',
-  businessName: 'Mevolut',
-  siteUrl: 'https://pageai.pro',
+  businessName: 'Tarek Ferdous',
+  siteUrl: 'https://tarekferdous.me/',
   siteRepo: '',
   socialBanner: '/api/og',
   supportEmail: '',
