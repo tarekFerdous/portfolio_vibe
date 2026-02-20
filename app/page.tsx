@@ -1,4 +1,4 @@
-import { BackgroundGhostTestimonials } from '@/components/dashboard/BackgroundGhostTestimonials';
+import { BackgroundWebGL } from '@/components/dashboard/BackgroundWebGL';
 import { IdentityBlock } from '@/components/dashboard/IdentityBlock';
 import { SkillChipsRow } from '@/components/dashboard/SkillChipsRow';
 import { PrimaryNavButtons } from '@/components/dashboard/PrimaryNavButtons';
@@ -7,12 +7,12 @@ import { DashboardThemeToggle } from '@/components/dashboard/DashboardThemeToggl
 
 export default function DashboardPage() {
   return (
-    <div className="relative min-h-screen w-full bg-gray-050 dark:bg-gray-950 overflow-hidden flex flex-col justify-center items-center py-10 transition-colors duration-500">
+    <div className="relative min-h-screen w-full bg-transparent overflow-hidden flex flex-col justify-center items-center py-10">
       {/* Absolute theme toggle */}
       <DashboardThemeToggle />
 
-      {/* Decorative background */}
-      <BackgroundGhostTestimonials />
+      {/* WebGL background layer */}
+      <BackgroundWebGL />
 
       {/* Decorative accent tile */}
       <FloatingStatusTile />
