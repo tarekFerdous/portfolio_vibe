@@ -1,4 +1,4 @@
-import { Nunito_Sans } from 'next/font/google';
+import { Space_Mono } from 'next/font/google';
 import { siteConfig } from '@/data/config/site.settings';
 import { ThemeProviders } from './theme-providers';
 import { Metadata } from 'next';
@@ -9,15 +9,17 @@ import '@/css/globals.css';
 import { SearchProvider } from '@/components/shared/SearchProvider';
 import { AnalyticsWrapper } from '@/components/shared/Analytics';
 
-const displayFont = Nunito_Sans({
+const displayFont = Space_Mono({
   subsets: ['latin'],
   display: 'swap',
+  weight: ['400', '700'],
   variable: '--font-space-display',
 });
 
-const baseFont = Nunito_Sans({
+const baseFont = Space_Mono({
   subsets: ['latin'],
   display: 'swap',
+  weight: ['400', '700'],
   variable: '--font-space-default',
 });
 

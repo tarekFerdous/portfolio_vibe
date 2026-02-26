@@ -7,7 +7,7 @@ import { DashboardThemeToggle } from '@/components/dashboard/DashboardThemeToggl
 
 export default function DashboardPage() {
   return (
-    <div className="relative min-h-screen w-full bg-transparent overflow-hidden flex flex-col justify-center items-center py-10">
+    <div className="relative min-h-screen w-full bg-transparent overflow-hidden flex flex-col justify-start items-center pt-[15vh] pb-10">
       {/* Absolute theme toggle */}
       <DashboardThemeToggle />
 
@@ -18,13 +18,16 @@ export default function DashboardPage() {
       <FloatingStatusTile />
 
       {/* Main Centered Content */}
-      <div className="relative z-10 w-full max-w-[560px] md:max-w-[640px] lg:max-w-[720px] px-[20px] sm:px-[24px] lg:px-[32px] mx-auto flex flex-col items-center">
+      <div className="relative z-10 w-full max-w-[560px] md:max-w-[640px] lg:max-w-[720px] px-[20px] sm:px-[24px] lg:px-[32px] mx-auto flex flex-col items-center gap-y-12">
         
         {/* Profile Block */}
         <IdentityBlock />
         
         {/* Skills Chips */}
         <SkillChipsRow />
+
+        {/* Fading Divider */}
+        <div className="w-full max-w-sm h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700 to-transparent" />
         
         {/* Primary Navigation Pills */}
         <PrimaryNavButtons />

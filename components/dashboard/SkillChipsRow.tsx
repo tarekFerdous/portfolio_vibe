@@ -18,7 +18,7 @@ const getIcon = (id: string, className: string) => {
 
 export const SkillChipsRow = () => {
   return (
-    <div className="flex flex-wrap justify-center gap-[10px] w-full max-w-[400px] mx-auto sm:max-w-none sm:flex-nowrap mt-4">
+    <div className="flex flex-wrap justify-center gap-[10px] w-full max-w-[400px] mx-auto sm:max-w-none sm:flex-nowrap">
       {dashboardData.chips.map((chip) => (
         <div
           key={chip.id}
