@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/ui/ThemeProvider';
 import { BackgroundGrid } from '@/components/ui/BackgroundGrid';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 export const metadata: Metadata = {
   title: 'Tarek Ferdous',
@@ -18,6 +19,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <BackgroundGrid />
+          <ThemeToggle />
           {children}
         </ThemeProvider>
       </body>
