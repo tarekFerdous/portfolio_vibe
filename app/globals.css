@@ -6,9 +6,9 @@
   --grid-size: 40px;
   --grid-line: rgba(0, 0, 0, 0.06);
   --bg: #ffffff;
-  --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(249, 115, 22, 0.65);
+  --glass-border: rgba(234, 88, 12, 0.4);
+  --glass-shadow: 0 8px 32px rgba(249, 115, 22, 0.25);
 }
 
 @media (min-width: 768px) {
@@ -20,9 +20,9 @@
 .dark {
   --grid-line: rgba(255, 255, 255, 0.07);
   --bg: #0a0a0a;
-  --glass-bg: rgba(0, 0, 0, 0.28);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --glass-bg: rgba(249, 115, 22, 0.45);
+  --glass-border: rgba(251, 146, 60, 0.3);
+  --glass-shadow: 0 8px 32px rgba(249, 115, 22, 0.3);
 }
 
 html,

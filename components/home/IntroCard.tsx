@@ -42,8 +42,8 @@ export function IntroCard() {
         />
       </div>
 
-      {/* Card wrapper — height comes from content */}
-      <div style={{ position: 'relative', paddingTop: CARD_TOP_PADDING }}>
+      {/* Card wrapper — height comes from content, overflow hidden clips filter halo */}
+      <div style={{ position: 'relative', paddingTop: CARD_TOP_PADDING, overflow: 'hidden' }}>
         {/* Liquid glass layer — absolute, clips to squircle */}
         <div
           style={{
