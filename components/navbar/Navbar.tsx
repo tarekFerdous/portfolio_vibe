@@ -2,6 +2,7 @@
 
 import { colors } from '@/lib/colors';
 import { SquircleWrap } from '@/components/ui/SquircleWrap';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 function HamburgerIcon() {
   return (
@@ -37,19 +38,22 @@ interface NavbarProps {
 export function Navbar({ open, onToggle }: NavbarProps) {
   return (
     <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3">
-      {/* Hamburger */}
-      <button
-        onClick={onToggle}
-        aria-label={open ? 'Close navigation' : 'Open navigation'}
-        className="text-gray-700 dark:text-gray-300"
-      >
-        <SquircleWrap
-          size={42}
-          className="bg-black/[0.06] dark:bg-white/[0.08] hover:bg-black/10 dark:hover:bg-white/[0.14] transition-colors"
+      {/* Hamburger + theme toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onToggle}
+          aria-label={open ? 'Close navigation' : 'Open navigation'}
+          className="text-gray-700 dark:text-gray-300"
         >
-          <HamburgerIcon />
-        </SquircleWrap>
-      </button>
+          <SquircleWrap
+            size={42}
+            className="bg-black/[0.06] dark:bg-white/[0.08] hover:bg-black/10 dark:hover:bg-white/[0.14] transition-colors"
+          >
+            <HamburgerIcon />
+          </SquircleWrap>
+        </button>
+        <ThemeToggle />
+      </div>
 
       {/* Social icons — centred, hidden on mobile */}
       <div className="hidden md:flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
