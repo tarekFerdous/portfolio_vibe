@@ -17,11 +17,17 @@ export function BackgroundGrid() {
         }}
       />
 
-      {/* Edge fade overlays — gradient from bg color to transparent */}
-      <div style={{ position: 'absolute', inset: 0, top: 0, left: 0, right: 0, height: '22%', background: 'linear-gradient(to bottom, var(--bg), transparent)' }} />
-      <div style={{ position: 'absolute', inset: 0, bottom: 0, left: 0, right: 0, height: '22%', background: 'linear-gradient(to top, var(--bg), transparent)' }} />
-      <div style={{ position: 'absolute', inset: 0, top: 0, bottom: 0, left: 0, width: '10%', background: 'linear-gradient(to right, var(--bg), transparent)' }} />
-      <div style={{ position: 'absolute', inset: 0, top: 0, bottom: 0, right: 0, width: '10%', background: 'linear-gradient(to left, var(--bg), transparent)' }} />
+      {/* Single overlay: fades all four edges simultaneously */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: [
+            'linear-gradient(to bottom, var(--bg) 0%, transparent 22%, transparent 78%, var(--bg) 100%)',
+            'linear-gradient(to right,  var(--bg) 0%, transparent 10%, transparent 90%, var(--bg) 100%)',
+          ].join(', '),
+        }}
+      />
     </div>
   );
 }
