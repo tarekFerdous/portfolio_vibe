@@ -72,3 +72,17 @@ Automatically use the IDE's built-in diagnostics tool to check for linting and t
    - Do this for *each* file you create or edit
 
 This is a CRITICAL step that must NEVER be skipped when working on any code-related task.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `tarekFerdous/portfolio_vibe`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-label vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout — `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

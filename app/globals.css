@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --grid-size: 40px;
+  --grid-line: rgba(0, 0, 0, 0.06);
+  --bg: #ffffff;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --grid-size: 56px;
+  }
+}
+
+.dark {
+  --grid-line: rgba(255, 255, 255, 0.07);
+  --bg: #0a0a0a;
+}
+
+html,
+body {
+  background-color: var(--bg);
+}
