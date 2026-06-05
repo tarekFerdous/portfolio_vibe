@@ -4,14 +4,14 @@
 
 :root {
   --grid-size: 40px;
-  --grid-line: rgba(0, 0, 0, 0.06);
+  --grid-line: rgba(0, 0, 0, 0.1);
   --bg: #ffffff;
   --glass-bg: rgba(249, 115, 22, 0.65);
   --glass-border: rgba(234, 88, 12, 0.4);
   --glass-shadow: 0 8px 32px rgba(249, 115, 22, 0.25);
-  --intro-glass-bg: rgba(255, 255, 255, 0.35);
-  --intro-glass-border: rgba(255, 255, 255, 0.5);
-  --intro-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --intro-glass-bg: rgba(255, 255, 255, 0.06);
+  --intro-glass-border: rgba(0, 0, 0, 0.15);
+  --intro-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 @media (min-width: 768px) {
@@ -21,14 +21,14 @@
 }
 
 .dark {
-  --grid-line: rgba(255, 255, 255, 0.07);
+  --grid-line: rgba(255, 255, 255, 0.12);
   --bg: #0a0a0a;
   --glass-bg: rgba(249, 115, 22, 0.45);
   --glass-border: rgba(251, 146, 60, 0.3);
   --glass-shadow: 0 8px 32px rgba(249, 115, 22, 0.3);
-  --intro-glass-bg: rgba(12, 12, 12, 0.5);
-  --intro-glass-border: rgba(255, 255, 255, 0.08);
-  --intro-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --intro-glass-bg: rgba(255, 255, 255, 0.05);
+  --intro-glass-border: rgba(255, 255, 255, 0.18);
+  --intro-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 html {

@@ -11,13 +11,12 @@ export function GlassCard({ title, body, children }: GlassCardProps) {
     <section className="relative w-full lg:w-[70vw] mx-auto mt-6 px-4 lg:px-0">
       <div className="rounded-[24px] overflow-hidden">
         <div className="relative py-12 px-10">
-          {/* Glass background layer */}
+          {/* Glass background layer — backdrop-filter kept separate from SVG filter to avoid conflict */}
           <div
             className="absolute inset-0"
             style={{
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              filter: 'url(#intro-glass)',
+              backdropFilter: 'blur(2px) saturate(1.6) brightness(1.06)',
+              WebkitBackdropFilter: 'blur(2px) saturate(1.6) brightness(1.06)',
               background: 'var(--intro-glass-bg)',
               border: '1px solid var(--intro-glass-border)',
               boxShadow: 'var(--intro-glass-shadow)',

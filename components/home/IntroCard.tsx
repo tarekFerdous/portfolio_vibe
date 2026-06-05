@@ -33,13 +33,12 @@ export function IntroCard() {
 
         {/* Content area */}
         <div className="relative pt-[76px] pb-10">
-          {/* Glass background layer — blur + displacement applied here, not to content */}
+          {/* Glass background layer — backdrop-filter kept separate from SVG filter to avoid conflict */}
           <div
             className="absolute inset-0"
             style={{
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              filter: 'url(#intro-glass)',
+              backdropFilter: 'blur(2px) saturate(1.6) brightness(1.06)',
+              WebkitBackdropFilter: 'blur(2px) saturate(1.6) brightness(1.06)',
               background: 'var(--intro-glass-bg)',
               border: '1px solid var(--intro-glass-border)',
               boxShadow: 'var(--intro-glass-shadow)',
