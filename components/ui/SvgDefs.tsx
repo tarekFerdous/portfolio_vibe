@@ -12,6 +12,10 @@ export function SvgDefs() {
           <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" result="turbulence" />
           <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="18" xChannelSelector="R" yChannelSelector="G" />
         </filter>
+        <filter id="intro-glass" x="-5%" y="-5%" width="110%" height="110%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.008" numOctaves="2" result="turbulence" seed="5" />
+          <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="8" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
       </defs>
     </svg>
   );
