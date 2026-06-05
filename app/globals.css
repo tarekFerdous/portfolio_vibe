@@ -9,9 +9,10 @@
   --glass-bg: rgba(249, 115, 22, 0.65);
   --glass-border: rgba(234, 88, 12, 0.4);
   --glass-shadow: 0 8px 32px rgba(249, 115, 22, 0.25);
-  --intro-glass-bg: rgba(255, 255, 255, 0.06);
-  --intro-glass-border: rgba(0, 0, 0, 0.15);
-  --intro-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --intro-glass-bg: rgba(0, 0, 0, 0.04);
+  --intro-glass-border: rgba(0, 0, 0, 0.1);
+  --intro-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --intro-glass-filter: blur(2px) saturate(1.4);
 }
 
 @media (min-width: 768px) {
@@ -29,6 +30,7 @@
   --intro-glass-bg: rgba(255, 255, 255, 0.05);
   --intro-glass-border: rgba(255, 255, 255, 0.18);
   --intro-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --intro-glass-filter: blur(2px) saturate(1.6) brightness(1.06);
 }
 
 html {

@@ -15,8 +15,8 @@ export function GlassCard({ title, body, children }: GlassCardProps) {
           <div
             className="absolute inset-0"
             style={{
-              backdropFilter: 'blur(2px) saturate(1.6) brightness(1.06)',
-              WebkitBackdropFilter: 'blur(2px) saturate(1.6) brightness(1.06)',
+              backdropFilter: 'var(--intro-glass-filter)',
+              WebkitBackdropFilter: 'var(--intro-glass-filter)',
               background: 'var(--intro-glass-bg)',
               border: '1px solid var(--intro-glass-border)',
               boxShadow: 'var(--intro-glass-shadow)',
