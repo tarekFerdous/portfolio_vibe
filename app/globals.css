@@ -3,6 +3,13 @@
 @tailwind utilities;
 
 :root {
+  /* Recursive variable font axes (defaults: proportional sans linear regular upright) */
+  --recursive-mono: 0;   /* 0 = proportional, 1 = monospace */
+  --recursive-casl: 0;   /* 0 = linear, 1 = casual */
+  --recursive-wght: 400; /* 300–1000 */
+  --recursive-slnt: 0;   /* 0 = upright, -15 = slanted */
+  --recursive-crsv: 0.5; /* 0 = roman, 0.5 = auto (default), 1 = always cursive */
+
   --grid-size: 40px;
   --grid-line: rgba(0, 0, 0, 0.1);
   --bg: #ffffff;
@@ -35,4 +42,29 @@
 
 html {
   background-color: var(--bg);
+}
+
+/* Recursive font-variation-settings helper — apply to any element using var(--font-recursive) */
+.recursive {
+  font-family: var(--font-recursive), sans-serif;
+  font-variation-settings:
+    'MONO' var(--recursive-mono),
+    'CASL' var(--recursive-casl),
+    'wght' var(--recursive-wght),
+    'slnt' var(--recursive-slnt),
+    'CRSV' var(--recursive-crsv);
+}
+
+/* Named presets — override individual axes via inline style or local CSS vars as needed */
+.recursive-sans        { --recursive-mono: 0; --recursive-casl: 0; }
+.recursive-casual      { --recursive-mono: 0; --recursive-casl: 1; }
+.recursive-mono        { --recursive-mono: 1; --recursive-casl: 0; }
+.recursive-mono-casual { --recursive-mono: 1; --recursive-casl: 1; }
+
+.scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-hidden::-webkit-scrollbar {
+  display: none;
 }

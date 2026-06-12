@@ -23,7 +23,8 @@
       "@/css/*": ["css/*"],
       "@/lib/*": ["lib/*"],
       "@/theme/*": ["theme/*"],
-      "@/app/*": ["app/*"]
+      "@/app/*": ["app/*"],
+      "@/hooks/*": ["hooks/*"]
     },
     "plugins": [
       {
@@ -43,5 +44,5 @@
     "**/*.json",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "vitest.config.ts", "vitest.setup.ts"]
 }
