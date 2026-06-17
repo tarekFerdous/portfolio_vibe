@@ -17,10 +17,11 @@ export function ProjectsCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const wheelThrottleRef = useRef<boolean>(false);
 
-  const { currentIndex, scrollToIndex, canScrollLeft, canScrollRight } = useCarouselScroll({
-    snapCount: SNAP_COUNT,
-    scrollRef,
-  });
+  const { currentIndex, scrollToIndex, canScrollLeft, canScrollRight } =
+    useCarouselScroll({
+      snapCount: SNAP_COUNT,
+      scrollRef,
+    });
 
   function slotTransform(cardIndex: number): string {
     if (cardIndex === currentIndex) return 'scale(1)';
@@ -41,7 +42,9 @@ export function ProjectsCarousel() {
       e.preventDefault();
       if (wheelThrottleRef.current) return;
       wheelThrottleRef.current = true;
-      setTimeout(() => { wheelThrottleRef.current = false; }, 600);
+      setTimeout(() => {
+        wheelThrottleRef.current = false;
+      }, 600);
       if (scrollingForward) {
         scrollToIndex(currentIndex + 1);
       } else {
@@ -62,15 +65,21 @@ export function ProjectsCarousel() {
         >
           {/* Overview card */}
           <div
-            className="flex-shrink-0 w-[85%] lg:w-[70vw] snap-start lg:ml-[15vw]"
-            style={{ transition: 'transform 350ms ease-out', transform: slotTransform(0) }}
+            className="flex-shrink-0 w-[85%] lg:w-[70vw] snap-start lg:ml-[14.5vw] lg:pr-[2.5vw]"
+            style={{
+              transition: 'transform 350ms ease-out',
+              transform: slotTransform(0),
+            }}
           >
             <ProjectOverviewCard onGoToProjects={() => scrollToIndex(1)} />
           </div>
 
           {/* Mobile-only: individual cards (each 85% wide) */}
           {projects.map((project) => (
-            <div key={`sm-${project.name}`} className="flex-shrink-0 w-[85%] snap-start lg:hidden">
+            <div
+              key={`sm-${project.name}`}
+              className="flex-shrink-0 w-[85%] snap-start lg:hidden"
+            >
               <ProjectCard project={project} />
             </div>
           ))}
@@ -78,14 +87,16 @@ export function ProjectsCarousel() {
           {/* Desktop-only: one card per snap stop in a 70vw slot */}
           {projects.map((project, idx) => {
             const snapIndex = idx + 1;
-            const isLast = idx === projects.length - 1;
             return (
               <div
                 key={`lg-${project.name}`}
                 className="flex-shrink-0 snap-start hidden lg:flex lg:w-[70vw]"
-                style={{ transition: 'transform 350ms ease-out', transform: slotTransform(snapIndex) }}
+                style={{
+                  transition: 'transform 350ms ease-out',
+                  transform: slotTransform(snapIndex),
+                }}
               >
-                <div className={isLast ? 'w-full' : 'w-[65vw] mx-auto'}>
+                <div className="w-[65vw] mx-auto">
                   <ProjectCard project={project} />
                 </div>
               </div>
@@ -93,7 +104,7 @@ export function ProjectsCarousel() {
           })}
 
           {/* Trailing spacer: 15vw so the last card can scroll to center (matches the 15vw left offset) */}
-          <div className="hidden lg:block flex-shrink-0 w-[15vw]" />
+          <div className="hidden lg:block flex-shrink-0 w-[12vw]" />
         </div>
 
         {/* Left gradient mask + click-to-retreat (lg only) */}
@@ -101,7 +112,9 @@ export function ProjectsCarousel() {
           <div
             onClick={() => scrollToIndex(currentIndex - 1)}
             className="hidden lg:block absolute left-0 inset-y-0 w-[15%] z-10 cursor-pointer"
-            style={{ background: 'linear-gradient(to right, var(--bg), transparent)' }}
+            style={{
+              background: 'linear-gradient(to right, var(--bg), transparent)',
+            }}
           />
         )}
 
@@ -110,7 +123,9 @@ export function ProjectsCarousel() {
           <div
             onClick={() => scrollToIndex(currentIndex + 1)}
             className="hidden lg:block absolute right-0 inset-y-0 w-[15%] z-10 cursor-pointer"
-            style={{ background: 'linear-gradient(to left, var(--bg), transparent)' }}
+            style={{
+              background: 'linear-gradient(to left, var(--bg), transparent)',
+            }}
           />
         )}
 
