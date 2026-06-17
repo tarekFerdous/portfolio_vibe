@@ -70,7 +70,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
       </div>
 
       {/* Desktop: side-by-side layout */}
-      <div className="hidden lg:flex flex-row min-h-[480px]">
+      <div className="hidden lg:flex flex-row h-[480px]">
         <div className="flex-1 relative">
           <div
             className="absolute inset-0"

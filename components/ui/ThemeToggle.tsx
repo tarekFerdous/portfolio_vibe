@@ -48,7 +48,6 @@ export function ThemeToggle() {
     const next = isDark ? 'light' : 'dark';
     document.documentElement.classList.toggle('dark', !isDark);
     setTheme(next);
-    if (window.innerWidth < 768) window.location.reload();
   };
 
   return (

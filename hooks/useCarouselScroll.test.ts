@@ -13,6 +13,7 @@ function makeScrollRef(childCount: number, containerWidth = 1000): RefObject<HTM
     scrollWidth: childCount * containerWidth,
     clientWidth: containerWidth,
     children,
+    style: {} as CSSStyleDeclaration,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   } as unknown as HTMLDivElement;

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Barlow_Condensed } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import { ThemeProvider } from '@/components/ui/ThemeProvider';
 import { BackgroundGrid } from '@/components/ui/BackgroundGrid';
@@ -13,6 +14,11 @@ const barlowCondensed = Barlow_Condensed({
   variable: '--font-barlow-condensed',
 });
 
+const recursive = localFont({
+  src: '../public/fonts/Recursive_VF_1.085.woff2',
+  variable: '--font-recursive',
+});
+
 export const metadata: Metadata = {
   title: 'Tarek Ferdous',
   description: 'Portfolio',
@@ -20,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={barlowCondensed.variable}>
+    <html lang="en" suppressHydrationWarning className={`${barlowCondensed.variable} ${recursive.variable}`}>
       <body>
         <ThemeProvider>
           <SvgDefs />

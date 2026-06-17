@@ -55,11 +55,11 @@ export function useCarouselScroll({ snapCount, scrollRef }: CarouselScrollOption
     if (!container) return;
 
     const snapPositions = getSnapPositions(container);
-    if (!snapPositions[index]) return;
+    if (snapPositions[index] === undefined) return;
 
-    // Account for scroll-padding-left (10% on lg)
+    // Use window.innerWidth (true viewport width, vw-relative) not clientWidth (excludes scrollbar)
     const isLg = window.innerWidth >= 1024;
-    const scrollPadding = isLg ? container.clientWidth * 0.1 : 0;
+    const scrollPadding = isLg ? window.innerWidth * 0.15 : 0;
     const targetScrollLeft = Math.max(0, snapPositions[index] - scrollPadding);
 
     if (animationRef.current !== null) {
@@ -69,8 +69,16 @@ export function useCarouselScroll({ snapCount, scrollRef }: CarouselScrollOption
     const el: HTMLDivElement = container;
     const startScrollLeft = el.scrollLeft;
     const distance = targetScrollLeft - startScrollLeft;
+    if (distance === 0) {
+      setCurrentIndex(index);
+      return;
+    }
     const duration = 450;
     const startTime = performance.now();
+
+    // Disable CSS scroll-snap during animation — otherwise the browser snaps
+    // to the nearest point on each frame and kills the ease-out motion.
+    el.style.scrollSnapType = 'none';
 
     function animate(now: number) {
       const elapsed = now - startTime;
@@ -80,6 +88,7 @@ export function useCarouselScroll({ snapCount, scrollRef }: CarouselScrollOption
         animationRef.current = requestAnimationFrame(animate);
       } else {
         animationRef.current = null;
+        el.style.scrollSnapType = ''; // restore — CSS class re-applies it
         setCurrentIndex(index);
       }
     }

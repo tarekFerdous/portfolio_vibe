@@ -1,14 +1,30 @@
 import Image from 'next/image';
-import { introduction_text } from '@/lib/text';
+import fs from 'fs';
+import path from 'path';
+import { introCardSummary } from '@/lib/text';
+
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.svg', '.webp', '.avif']);
+
+function pickCoverImage(): string | null {
+  const dir = path.join(process.cwd(), 'public', 'images', 'covers');
+  try {
+    const files = fs.readdirSync(dir).filter(f => IMAGE_EXTS.has(path.extname(f).toLowerCase()));
+    if (files.length === 0) return null;
+    return '/images/covers/' + files[Math.floor(Math.random() * files.length)];
+  } catch {
+    return null;
+  }
+}
 
 export function IntroCard() {
+  const cover = pickCoverImage();
   return (
     <section className="relative w-full lg:w-[70vw] mx-auto mt-8 px-4 lg:px-0">
       {/* Profile photo — centered, overlaps cover/content boundary by 60px each side */}
       <div className="absolute left-1/2 -translate-x-1/2 top-[90px] md:top-[140px] z-10">
         <div className="w-[120px] h-[120px] rounded-full overflow-hidden border-4 border-white dark:border-neutral-900 shadow-lg bg-slate-200">
           <Image
-            src="/images/avatar.svg"
+            src="/images/avatar.jpeg"
             alt="Tarek Ferdous"
             width={120}
             height={120}
@@ -22,13 +38,15 @@ export function IntroCard() {
       <div className="rounded-[24px] overflow-hidden">
         {/* Cover photo */}
         <div className="relative h-[150px] md:h-[200px] bg-gradient-to-br from-violet-400 to-purple-600">
-          <Image
-            src="/images/cover.svg"
-            alt=""
-            fill
-            className="object-cover"
-            priority
-          />
+          {cover && (
+            <Image
+              src={cover}
+              alt=""
+              fill
+              className="object-cover"
+              priority
+            />
+          )}
         </div>
 
         {/* Content area */}
@@ -53,7 +71,7 @@ export function IntroCard() {
           />
 
           {/* Content — above glass layer, unaffected by displacement filter */}
-          <div className="relative z-10 text-center px-8">
+          <div className="relative z-10 text-center lg:text-left px-8">
             <h1
               className="text-gray-900 dark:text-gray-50"
               style={{
@@ -65,8 +83,15 @@ export function IntroCard() {
             >
               Tarek Ferdous
             </h1>
-            <p className="mt-4 text-gray-700 dark:text-gray-300 max-w-lg mx-auto leading-relaxed">
-              {introduction_text}
+            <p
+              className="mt-4 text-gray-700 dark:text-gray-300 max-w-lg lg:max-w-none mx-auto lg:mx-0 leading-relaxed"
+              style={{
+                fontFamily: 'var(--font-recursive)',
+                fontVariationSettings: "'MONO' 0, 'CASL' 0, 'wght' 500, 'slnt' 0, 'CRSV' 0.5",
+                fontSize: '15pt',
+              }}
+            >
+              {introCardSummary}
             </p>
           </div>
         </div>
