@@ -58,8 +58,8 @@ export function useCarouselScroll({ snapCount, scrollRef }: CarouselScrollOption
     if (snapPositions[index] === undefined) return;
 
     // Use window.innerWidth (true viewport width, vw-relative) not clientWidth (excludes scrollbar)
-    const isLg = window.innerWidth >= 1024;
-    const scrollPadding = isLg ? window.innerWidth * 0.15 : 0;
+    const w = window.innerWidth;
+    const scrollPadding = w >= 1024 ? w * 0.15 : w >= 768 ? w * 0.13 : w * 0.11;
     const targetScrollLeft = Math.max(0, snapPositions[index] - scrollPadding);
 
     if (animationRef.current !== null) {

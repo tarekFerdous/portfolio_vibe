@@ -8,10 +8,16 @@ import { CarouselNavArrows } from './CarouselNavArrows';
 import { useCarouselScroll } from '@/hooks/useCarouselScroll';
 
 const SNAP_COUNT = 1 + projects.length;
-const INACTIVE_SCALE = 0.88;
-const SLOT_VW = 70;
-// translateX that closes the gap left by center-origin scale, so peeking cards sit flush against the active card
-const LEAN_VW = (SLOT_VW * (1 - INACTIVE_SCALE)) / 2; // 4.2vw
+
+function getBreakpointConstants() {
+  if (typeof window === 'undefined') {
+    return { INACTIVE_SCALE: 0.88, LEAN_VW: 4.2 };
+  }
+  const w = window.innerWidth;
+  if (w >= 1024) return { INACTIVE_SCALE: 0.88, LEAN_VW: 4.2 };
+  if (w >= 768) return { INACTIVE_SCALE: 0.9, LEAN_VW: 3.7 };
+  return { INACTIVE_SCALE: 0.9, LEAN_VW: 3.9 };
+}
 
 export function ProjectsCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -25,6 +31,7 @@ export function ProjectsCarousel() {
 
   function slotTransform(cardIndex: number): string {
     if (cardIndex === currentIndex) return 'scale(1)';
+    const { INACTIVE_SCALE, LEAN_VW } = getBreakpointConstants();
     const dir = cardIndex < currentIndex ? 1 : -1;
     return `translateX(${dir * LEAN_VW}vw) scale(${INACTIVE_SCALE})`;
   }
@@ -61,11 +68,11 @@ export function ProjectsCarousel() {
       <div className="relative">
         <div
           ref={scrollRef}
-          className="flex overflow-x-scroll snap-x snap-mandatory scroll-hidden lg:[scroll-padding-left:15vw]"
+          className="flex overflow-x-scroll snap-x snap-mandatory scroll-hidden [scroll-padding-left:11vw] md:[scroll-padding-left:13vw] lg:[scroll-padding-left:15vw]"
         >
           {/* Overview card */}
           <div
-            className="flex-shrink-0 w-[85%] lg:w-[70vw] snap-start lg:ml-[14.5vw] lg:pr-[2.5vw]"
+            className="flex-shrink-0 w-[78vw] md:w-[74vw] lg:w-[70vw] snap-start ml-[11vw] md:ml-[13vw] lg:ml-[14.5vw] lg:pr-[2.5vw]"
             style={{
               transition: 'transform 350ms ease-out',
               transform: slotTransform(0),
@@ -74,37 +81,24 @@ export function ProjectsCarousel() {
             <ProjectOverviewCard onGoToProjects={() => scrollToIndex(1)} />
           </div>
 
-          {/* Mobile-only: individual cards (each 85% wide) */}
-          {projects.map((project) => (
+          {/* Project cards */}
+          {projects.map((project, idx) => (
             <div
-              key={`sm-${project.name}`}
-              className="flex-shrink-0 w-[85%] snap-start lg:hidden"
+              key={project.name}
+              className="flex-shrink-0 w-[78vw] md:w-[74vw] lg:w-[70vw] snap-start"
+              style={{
+                transition: 'transform 350ms ease-out',
+                transform: slotTransform(idx + 1),
+              }}
             >
-              <ProjectCard project={project} />
+              <div className="lg:w-[65vw] lg:mx-auto">
+                <ProjectCard project={project} />
+              </div>
             </div>
           ))}
 
-          {/* Desktop-only: one card per snap stop in a 70vw slot */}
-          {projects.map((project, idx) => {
-            const snapIndex = idx + 1;
-            return (
-              <div
-                key={`lg-${project.name}`}
-                className="flex-shrink-0 snap-start hidden lg:flex lg:w-[70vw]"
-                style={{
-                  transition: 'transform 350ms ease-out',
-                  transform: slotTransform(snapIndex),
-                }}
-              >
-                <div className="w-[65vw] mx-auto">
-                  <ProjectCard project={project} />
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Trailing spacer: 15vw so the last card can scroll to center (matches the 15vw left offset) */}
-          <div className="hidden lg:block flex-shrink-0 w-[12vw]" />
+          {/* Trailing spacer: allows last card to scroll to center */}
+          <div className="flex-shrink-0 w-[11vw] md:w-[13vw] lg:w-[12vw]" />
         </div>
 
         {/* Left gradient mask + click-to-retreat (lg only) */}
