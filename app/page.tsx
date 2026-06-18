@@ -1,14 +1,13 @@
 import { IntroCard } from '@/components/home/IntroCard';
-import { GlassCard } from '@/components/home/GlassCard';
 import { ProjectsCarousel } from '@/components/home/ProjectsCarousel';
-import { skills_text } from '@/lib/text';
+import { SkillsCard } from '@/components/home/SkillsCard';
 
 export default function Home() {
   return (
     <main className="pt-16 pb-24">
       <IntroCard />
       <ProjectsCarousel />
-      <GlassCard title="Skills" body={skills_text} />
+      <SkillsCard />
     </main>
   );
 }

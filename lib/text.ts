@@ -52,8 +52,7 @@ export const projects_text =
   'Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur. ' +
   'Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet consectetur adipiscing elit.';
 
-export const skills_text =
-  'At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti. ' +
-  'Nam libero tempore cum soluta nobis eligendi optio cumque nihil impedit quo minus id quod maxime placeat. ' +
-  'Temporibus autem quibusdam et aut officiis debitis rerum necessitatibus saepe eveniet ut voluptates. ' +
-  'Itaque earum rerum hic tenetur a sapiente delectus ut aut reiciendis voluptatibus maiores alias.';
+export const skillsSectionTitle = 'Skills';
+
+export const skillsSectionSummary =
+  'Or rather I should say, things that I have used along the way.';
