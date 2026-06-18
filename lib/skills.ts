@@ -30,7 +30,7 @@ export type SkillCategory = {
 };
 
 export type LanguageCompetency = {
-  flag: string;
+  countryCode: string;
   language: string;
   level: string;
 };
@@ -81,6 +81,6 @@ export const skillCategories: SkillCategory[] = [
 ];
 
 export const languageCompetencies: LanguageCompetency[] = [
-  { flag: '🇨🇦', language: 'English', level: 'CELPIP 9' },
-  { flag: '🇫🇷', language: 'French', level: 'B1' },
+  { countryCode: 'ca', language: 'English', level: 'CELPIP 9' },
+  { countryCode: 'fr', language: 'French', level: 'B1' },
 ];

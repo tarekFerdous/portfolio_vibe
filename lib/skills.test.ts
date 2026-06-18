@@ -45,10 +45,10 @@ describe('languageCompetencies', () => {
     expect(languageCompetencies).toHaveLength(2);
   });
 
-  it('every entry has non-empty flag, language, and level fields', () => {
+  it('every entry has non-empty countryCode, language, and level fields', () => {
     for (const entry of languageCompetencies) {
-      expect(typeof entry.flag).toBe('string');
-      expect(entry.flag.length).toBeGreaterThan(0);
+      expect(typeof entry.countryCode).toBe('string');
+      expect(entry.countryCode.length).toBeGreaterThan(0);
       expect(typeof entry.language).toBe('string');
       expect(entry.language.length).toBeGreaterThan(0);
       expect(typeof entry.level).toBe('string');

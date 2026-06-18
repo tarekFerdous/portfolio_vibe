@@ -1,9 +1,10 @@
+import 'flag-icons/css/flag-icons.min.css';
 import { skillCategories, languageCompetencies } from '@/lib/skills';
 import { skillsSectionTitle, skillsSectionSummary } from '@/lib/text';
 
 export function SkillsCard() {
   return (
-    <div className="mt-4 px-4 md:px-6 lg:px-8">
+    <section className="relative w-full lg:w-[70vw] mx-auto mt-4 px-4 lg:px-0">
       <div
         className="relative rounded-[24px] overflow-hidden flex flex-col md:flex-row"
         style={{
@@ -118,7 +119,10 @@ export function SkillsCard() {
                   key={entry.language}
                   className="flex items-center gap-2 rounded-full px-4 py-1.5 border border-gray-200 dark:border-gray-700 bg-white/40 dark:bg-white/5"
                 >
-                  <span className="text-base leading-none">{entry.flag}</span>
+                  <span
+                    className={`fi fi-${entry.countryCode}`}
+                    style={{ fontSize: '16px', lineHeight: 1 }}
+                  />
                   <span
                     className="text-gray-700 dark:text-gray-300"
                     style={{
@@ -147,6 +151,6 @@ export function SkillsCard() {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
