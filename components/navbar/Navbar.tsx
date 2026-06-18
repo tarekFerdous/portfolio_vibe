@@ -89,12 +89,14 @@ export function Navbar({ open, onToggle }: NavbarProps) {
 
       {/* Hire Me */}
       <button
+        className="inline-flex items-center px-6 py-3 rounded-full hover:opacity-80 transition-opacity"
         style={{
           backgroundColor: colors.hireMeGreen,
           color: colors.hireMeText,
-          borderRadius: '14px',
+          fontFamily: 'var(--font-recursive)',
+          fontVariationSettings: "'MONO' 0, 'CASL' 0, 'wght' 700, 'slnt' 0, 'CRSV' 0.5",
+          fontSize: '13pt',
         }}
-        className="px-5 py-2.5 font-black text-sm tracking-tight"
       >
         Hire Me
       </button>
