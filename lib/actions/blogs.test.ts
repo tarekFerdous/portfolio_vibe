@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateSlug } from './blogs';
+import { generateSlug } from '@/lib/utils/slug';
 
 describe('generateSlug', () => {
   it('converts title to lowercase kebab-case', () => {

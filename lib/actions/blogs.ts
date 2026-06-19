@@ -2,16 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { deleteImage } from './images';
+import { generateSlug } from '@/lib/utils/slug';
 import type { Blog, BlogBlock, BlogStatus } from '@/lib/supabase/types';
-
-export function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-}
 
 export async function fetchBlogs(): Promise<Blog[]> {
   const supabase = await createClient();
