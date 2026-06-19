@@ -1,13 +1,15 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
-import { projects } from '@/lib/text';
+import type { Project } from '@/lib/supabase/types';
 import { ProjectOverviewCard } from './ProjectOverviewCard';
 import { ProjectCard } from './ProjectCard';
 import { CarouselNavArrows } from './CarouselNavArrows';
 import { useCarouselScroll } from '@/hooks/useCarouselScroll';
 
-const SNAP_COUNT = 1 + projects.length;
+interface ProjectsCarouselProps {
+  projects: Project[];
+}
 
 function getBreakpointConstants() {
   if (typeof window === 'undefined') {
@@ -19,7 +21,8 @@ function getBreakpointConstants() {
   return { INACTIVE_SCALE: 0.9, LEAN_VW: 3.9 };
 }
 
-export function ProjectsCarousel() {
+export function ProjectsCarousel({ projects }: ProjectsCarouselProps) {
+  const SNAP_COUNT = 1 + projects.length;
   const scrollRef = useRef<HTMLDivElement>(null);
   const wheelThrottleRef = useRef<boolean>(false);
 

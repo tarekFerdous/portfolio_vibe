@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/ui/ThemeProvider';
 import { BackgroundGrid } from '@/components/ui/BackgroundGrid';
 import { SvgDefs } from '@/components/ui/SvgDefs';
 import { NavLayout } from '@/components/navbar/NavLayout';
+import { fetchContacts } from '@/lib/actions/contacts';
 
 const barlowCondensed = Barlow_Condensed({
   subsets: ['latin'],
@@ -24,14 +25,16 @@ export const metadata: Metadata = {
   description: 'Portfolio',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const contacts = await fetchContacts();
+
   return (
     <html lang="en" suppressHydrationWarning className={`${barlowCondensed.variable} ${recursive.variable}`}>
       <body>
         <ThemeProvider>
           <SvgDefs />
           <BackgroundGrid />
-          <NavLayout>{children}</NavLayout>
+          <NavLayout contacts={contacts}>{children}</NavLayout>
         </ThemeProvider>
       </body>
     </html>

@@ -1,7 +1,8 @@
-import type { ProjectEntry } from '@/lib/text';
+import Image from 'next/image';
+import type { Project } from '@/lib/supabase/types';
 
 interface ProjectCardProps {
-  project: ProjectEntry;
+  project: Project;
 }
 
 export function ProjectCard({ project }: ProjectCardProps) {
@@ -77,9 +78,12 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
       {/* Photo — fills remaining height on mobile, right half on desktop */}
       <div
-        className="flex-1 lg:flex-none lg:w-1/2"
-        style={{ backgroundColor: project.color }}
-      />
+        className="relative flex-1 lg:flex-none lg:w-1/2 bg-neutral-200 dark:bg-neutral-700"
+      >
+        {project.image_url && (
+          <Image src={project.image_url} alt={project.name} fill className="object-cover" />
+        )}
+      </div>
 
       {/* Mobile/medium: glass summary + button */}
       <div className="lg:hidden relative flex-shrink-0 px-6 pt-6 pb-8">

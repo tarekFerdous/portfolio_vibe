@@ -30,12 +30,18 @@ function LinkedInIcon() {
   );
 }
 
+import type { Contacts } from '@/lib/supabase/types';
+
 interface NavbarProps {
   open: boolean;
   onToggle: () => void;
+  contacts?: Contacts | null;
 }
 
-export function Navbar({ open, onToggle }: NavbarProps) {
+export function Navbar({ open, onToggle, contacts }: NavbarProps) {
+  const hireMeDest = contacts?.hire_me_destination || null;
+  const linkedInUrl = contacts?.linkedin_url || 'https://linkedin.com/in/tarekferdous';
+  const githubUrl = contacts?.github_url || 'https://github.com/tarekFerdous';
   return (
     <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3">
       {/* Hamburger + theme toggle */}
@@ -58,7 +64,7 @@ export function Navbar({ open, onToggle }: NavbarProps) {
       {/* Social icons — centred, hidden on mobile */}
       <div className="hidden md:flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
         <a
-          href="https://linkedin.com/in/tarekferdous"
+          href={linkedInUrl}
           target="_blank"
           rel="noopener noreferrer"
           aria-label="LinkedIn"
@@ -72,7 +78,7 @@ export function Navbar({ open, onToggle }: NavbarProps) {
           </SquircleWrap>
         </a>
         <a
-          href="https://github.com/tarekFerdous"
+          href={githubUrl}
           target="_blank"
           rel="noopener noreferrer"
           aria-label="GitHub"
@@ -88,18 +94,35 @@ export function Navbar({ open, onToggle }: NavbarProps) {
       </div>
 
       {/* Hire Me */}
-      <button
-        className="inline-flex items-center px-6 py-3 rounded-full hover:opacity-80 transition-opacity"
-        style={{
-          backgroundColor: colors.hireMeGreen,
-          color: colors.hireMeText,
-          fontFamily: 'var(--font-recursive)',
-          fontVariationSettings: "'MONO' 0, 'CASL' 0, 'wght' 700, 'slnt' 0, 'CRSV' 0.5",
-          fontSize: '13pt',
-        }}
-      >
-        Hire Me
-      </button>
+      {hireMeDest ? (
+        <a
+          href={hireMeDest}
+          className="inline-flex items-center px-6 py-3 rounded-full hover:opacity-80 transition-opacity"
+          style={{
+            backgroundColor: colors.hireMeGreen,
+            color: colors.hireMeText,
+            fontFamily: 'var(--font-recursive)',
+            fontVariationSettings: "'MONO' 0, 'CASL' 0, 'wght' 700, 'slnt' 0, 'CRSV' 0.5",
+            fontSize: '13pt',
+          }}
+        >
+          Hire Me
+        </a>
+      ) : (
+        <button
+          disabled
+          className="inline-flex items-center px-6 py-3 rounded-full opacity-50 cursor-default"
+          style={{
+            backgroundColor: colors.hireMeGreen,
+            color: colors.hireMeText,
+            fontFamily: 'var(--font-recursive)',
+            fontVariationSettings: "'MONO' 0, 'CASL' 0, 'wght' 700, 'slnt' 0, 'CRSV' 0.5",
+            fontSize: '13pt',
+          }}
+        >
+          Hire Me
+        </button>
+      )}
     </header>
   );
 }

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { SquircleWrap } from '@/components/ui/SquircleWrap';
+import type { Contacts } from '@/lib/supabase/types';
 
 function AboutIcon() {
   return (
@@ -43,15 +44,9 @@ function ContactIcon() {
   );
 }
 
-const navItems: { label: string; href: string; icon: ReactNode; target?: string; rel?: string }[] = [
-  { label: 'About', href: '#about', icon: <AboutIcon /> },
-  { label: 'Projects', href: '#projects', icon: <ProjectsIcon /> },
-  { label: 'Blog', href: '/blog', icon: <BlogIcon /> },
-  { label: 'Resume', href: '/tarek_ferdous_resume.pdf', icon: <ResumeIcon />, target: '_blank', rel: 'noopener noreferrer' },
-  { label: 'Contact', href: '#contact', icon: <ContactIcon /> },
-];
+type NavItem = { label: string; href: string; icon: ReactNode; target?: string; rel?: string };
 
-function NavItem({ label, href, icon, size, target, rel }: { label: string; href: string; icon: ReactNode; size: number; target?: string; rel?: string }) {
+function NavItem({ label, href, icon, size, target, rel }: NavItem & { size: number }) {
   return (
     <a href={href} target={target} rel={rel} className="group flex flex-col items-center gap-1">
       <SquircleWrap
@@ -70,8 +65,16 @@ function NavItem({ label, href, icon, size, target, rel }: { label: string; href
 const panelClass =
   'bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-black/[0.06] dark:border-white/[0.08] shadow-lg';
 
-export function Sidebar({ open }: { open: boolean }) {
+export function Sidebar({ open, contacts }: { open: boolean; contacts?: Contacts | null }) {
   if (!open) return null;
+
+  const navItems: NavItem[] = [
+    { label: 'About', href: '#about', icon: <AboutIcon /> },
+    { label: 'Projects', href: '#projects', icon: <ProjectsIcon /> },
+    { label: 'Blog', href: '/blog', icon: <BlogIcon /> },
+    { label: 'Resume', href: '/tarek_ferdous_resume.pdf', icon: <ResumeIcon />, target: '_blank', rel: 'noopener noreferrer' },
+    { label: 'Contact', href: '#contact', icon: <ContactIcon /> },
+  ];
 
   return (
     <>
