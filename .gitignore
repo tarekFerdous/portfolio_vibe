@@ -36,6 +36,7 @@ public/sitemap.xml
 .agents/
 .claude/
 .mcp.json
+.vscode/
 
 # Playwright MCP session snapshots
 .playwright-mcp/
