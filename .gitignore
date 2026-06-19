@@ -37,6 +37,7 @@ public/sitemap.xml
 .claude/
 .mcp.json
 .vscode/
+skills-lock.json
 
 # Playwright MCP session snapshots
 .playwright-mcp/
