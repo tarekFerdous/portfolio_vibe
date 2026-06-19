@@ -43,17 +43,17 @@ function ContactIcon() {
   );
 }
 
-const navItems: { label: string; href: string; icon: ReactNode }[] = [
+const navItems: { label: string; href: string; icon: ReactNode; target?: string; rel?: string }[] = [
   { label: 'About', href: '#about', icon: <AboutIcon /> },
   { label: 'Projects', href: '#projects', icon: <ProjectsIcon /> },
   { label: 'Blog', href: '/blog', icon: <BlogIcon /> },
-  { label: 'Resume', href: '/resume', icon: <ResumeIcon /> },
+  { label: 'Resume', href: '/tarek_ferdous_resume.pdf', icon: <ResumeIcon />, target: '_blank', rel: 'noopener noreferrer' },
   { label: 'Contact', href: '#contact', icon: <ContactIcon /> },
 ];
 
-function NavItem({ label, href, icon, size }: { label: string; href: string; icon: ReactNode; size: number }) {
+function NavItem({ label, href, icon, size, target, rel }: { label: string; href: string; icon: ReactNode; size: number; target?: string; rel?: string }) {
   return (
-    <a href={href} className="group flex flex-col items-center gap-1">
+    <a href={href} target={target} rel={rel} className="group flex flex-col items-center gap-1">
       <SquircleWrap
         size={size}
         className="bg-black/[0.06] dark:bg-white/[0.08] text-gray-700 dark:text-gray-300 group-hover:bg-black/10 dark:group-hover:bg-white/[0.14] transition-colors"
