@@ -32,6 +32,22 @@ public/sitemap.xml
 # misc
 .DS_Store
 
+# AI/IDE tooling (personal configs, not needed in repo)
+.agents/
+.claude/
+.mcp.json
+
+# Playwright MCP session snapshots
+.playwright-mcp/
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Debug/verification screenshots
+carousel-*.png
+hire-me*.png
+*.dev-server.log
+
 # debug
 *.log
 npm-debug.log*
