@@ -22,6 +22,8 @@ import {
 export type Skill = {
   name: string;
   icon: IconType;
+  color?: string;
+  darkColor?: string;
 };
 
 export type SkillCategory = {
@@ -39,43 +41,43 @@ export const skillCategories: SkillCategory[] = [
   {
     name: 'Languages',
     skills: [
-      { name: 'Python', icon: SiPython },
-      { name: 'TypeScript', icon: SiTypescript },
-      { name: 'JavaScript', icon: SiJavascript },
-      { name: 'SQL', icon: SiMysql },
+      { name: 'Python', icon: SiPython, color: '#3776AB' },
+      { name: 'TypeScript', icon: SiTypescript, color: '#3178C6' },
+      { name: 'JavaScript', icon: SiJavascript, color: '#F7DF1E' },
+      { name: 'SQL', icon: SiMysql, color: '#4479A1' },
     ],
   },
   {
     name: 'Frontend',
     skills: [
-      { name: 'React', icon: SiReact },
-      { name: 'Next.js', icon: SiNextdotjs },
-      { name: 'Tailwind CSS', icon: SiTailwindcss },
+      { name: 'React', icon: SiReact, color: '#61DAFB' },
+      { name: 'Next.js', icon: SiNextdotjs, color: '#000000', darkColor: '#ffffff' },
+      { name: 'Tailwind CSS', icon: SiTailwindcss, color: '#06B6D4' },
     ],
   },
   {
     name: 'Backend',
     skills: [
-      { name: 'Node.js', icon: SiNodedotjs },
-      { name: 'FastAPI', icon: SiFastapi },
-      { name: 'PostgreSQL', icon: SiPostgresql },
-      { name: 'Redis', icon: SiRedis },
+      { name: 'Node.js', icon: SiNodedotjs, color: '#339933' },
+      { name: 'FastAPI', icon: SiFastapi, color: '#009688' },
+      { name: 'PostgreSQL', icon: SiPostgresql, color: '#4169E1' },
+      { name: 'Redis', icon: SiRedis, color: '#FF4438' },
     ],
   },
   {
     name: 'ML / AI',
     skills: [
-      { name: 'PyTorch', icon: SiPytorch },
-      { name: 'scikit-learn', icon: SiScikitlearn },
-      { name: 'Pandas', icon: SiPandas },
+      { name: 'PyTorch', icon: SiPytorch, color: '#EE4C2C' },
+      { name: 'scikit-learn', icon: SiScikitlearn, color: '#F7931E' },
+      { name: 'Pandas', icon: SiPandas, color: '#150458' },
     ],
   },
   {
     name: 'Infra / DevOps',
     skills: [
-      { name: 'Docker', icon: SiDocker },
-      { name: 'Linux', icon: SiLinux },
-      { name: 'Git', icon: SiGit },
+      { name: 'Docker', icon: SiDocker, color: '#2496ED' },
+      { name: 'Linux', icon: SiLinux, color: '#FCC624' },
+      { name: 'Git', icon: SiGit, color: '#F05032' },
     ],
   },
 ];

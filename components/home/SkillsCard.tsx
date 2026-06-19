@@ -1,8 +1,21 @@
+'use client';
+
 import 'flag-icons/css/flag-icons.min.css';
-import { skillCategories, languageCompetencies } from '@/lib/skills';
+import { useEffect, useState } from 'react';
+import { useTheme } from 'next-themes';
+import { skillCategories, languageCompetencies, type Skill } from '@/lib/skills';
 import { skillsSectionTitle, skillsSectionSummary } from '@/lib/text';
 
 export function SkillsCard() {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  function iconColor(skill: Skill): string | undefined {
+    if (!mounted || !skill.color) return undefined;
+    if (resolvedTheme === 'dark' && skill.darkColor) return skill.darkColor;
+    return skill.color;
+  }
   return (
     <section className="relative w-full lg:w-[70vw] mx-auto mt-4 px-4 lg:px-0">
       <div
@@ -80,7 +93,9 @@ export function SkillsCard() {
                     >
                       <skill.icon
                         size={32}
-                        className="text-gray-700 dark:text-gray-300"
+                        {...(iconColor(skill)
+                          ? { color: iconColor(skill) }
+                          : { className: 'text-gray-700 dark:text-gray-300' })}
                       />
                       <span
                         className="text-gray-500 dark:text-gray-400"

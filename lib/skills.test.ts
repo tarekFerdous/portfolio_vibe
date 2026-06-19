@@ -38,6 +38,27 @@ describe('skillCategories', () => {
     expect(names).toContain('ML / AI');
     expect(names).toContain('Infra / DevOps');
   });
+
+  it('every skill color, when set, is a valid 6-digit hex string', () => {
+    const hexRe = /^#[0-9a-fA-F]{6}$/;
+    for (const category of skillCategories) {
+      for (const skill of category.skills) {
+        if (skill.color !== undefined) {
+          expect(skill.color).toMatch(hexRe);
+        }
+        if (skill.darkColor !== undefined) {
+          expect(skill.darkColor).toMatch(hexRe);
+        }
+      }
+    }
+  });
+
+  it('Next.js skill has both color and darkColor set', () => {
+    const frontend = skillCategories.find((c) => c.name === 'Frontend')!;
+    const nextjs = frontend.skills.find((s) => s.name === 'Next.js')!;
+    expect(nextjs.color).toBe('#000000');
+    expect(nextjs.darkColor).toBe('#ffffff');
+  });
 });
 
 describe('languageCompetencies', () => {
