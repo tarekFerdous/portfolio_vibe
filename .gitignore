@@ -61,3 +61,11 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+
+# OpenNext
+.open-next
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
