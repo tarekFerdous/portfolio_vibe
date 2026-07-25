@@ -19,12 +19,6 @@ export function ProjectOverviewCard({ onGoToProjects }: ProjectOverviewCardProps
             boxShadow: 'var(--intro-glass-shadow)',
           }}
         />
-        <div
-          className="absolute inset-x-0 top-0 h-[30%] pointer-events-none z-[1]"
-          style={{
-            background: 'linear-gradient(to bottom, rgba(255,255,255,0.18) 0%, transparent 100%)',
-          }}
-        />
         <h2
           className="relative z-10 text-gray-900 dark:text-gray-50"
           style={{
@@ -48,12 +42,6 @@ export function ProjectOverviewCard({ onGoToProjects }: ProjectOverviewCardProps
             background: 'var(--intro-glass-bg)',
             border: '1px solid var(--intro-glass-border)',
             boxShadow: 'var(--intro-glass-shadow)',
-          }}
-        />
-        <div
-          className="absolute inset-x-0 top-0 h-[30%] pointer-events-none z-[1]"
-          style={{
-            background: 'linear-gradient(to bottom, rgba(255,255,255,0.18) 0%, transparent 100%)',
           }}
         />
         <h2

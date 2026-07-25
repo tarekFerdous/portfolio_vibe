@@ -28,15 +28,6 @@ export function SkillsCard() {
           boxShadow: 'var(--intro-glass-shadow)',
         }}
       >
-        {/* Specular highlight */}
-        <div
-          className="absolute inset-x-0 top-0 h-[30%] pointer-events-none z-[1]"
-          style={{
-            background:
-              'linear-gradient(to bottom, rgba(255,255,255,0.18) 0%, transparent 100%)',
-          }}
-        />
-
         {/* Left panel — title + summary */}
         <div className="relative z-10 flex flex-col justify-center px-8 py-8 md:w-1/5 md:py-12">
           <h2

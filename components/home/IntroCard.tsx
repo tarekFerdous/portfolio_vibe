@@ -53,13 +53,6 @@ export async function IntroCard() {
               boxShadow: 'var(--intro-glass-shadow)',
             }}
           />
-          <div
-            className="absolute inset-x-0 top-0 h-[35%] pointer-events-none z-[1]"
-            style={{
-              background: 'linear-gradient(to bottom, rgba(255,255,255,0.18) 0%, transparent 100%)',
-            }}
-          />
-
           <div className="relative z-10 text-center lg:text-left px-8">
             <h1
               className="text-gray-900 dark:text-gray-50"
