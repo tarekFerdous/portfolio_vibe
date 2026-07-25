@@ -6,6 +6,7 @@ import type { Contacts } from '@/lib/supabase/types';
 
 interface Props {
   initialContacts: Contacts | null;
+  fetchError?: string | null;
 }
 
 const fields: { key: keyof Omit<Contacts, 'id' | 'updated_at'>; label: string; placeholder: string; type?: string }[] = [
@@ -17,7 +18,7 @@ const fields: { key: keyof Omit<Contacts, 'id' | 'updated_at'>; label: string; p
   { key: 'hire_me_destination', label: 'Hire Me Destination', placeholder: 'mailto:you@example.com or https://…' },
 ];
 
-export function ContactsEditorForm({ initialContacts }: Props) {
+export function ContactsEditorForm({ initialContacts, fetchError }: Props) {
   const [values, setValues] = useState<Omit<Contacts, 'id' | 'updated_at'>>({
     email: initialContacts?.email ?? '',
     phone: initialContacts?.phone ?? '',
@@ -28,21 +29,47 @@ export function ContactsEditorForm({ initialContacts }: Props) {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
     setSaving(true);
     setSaved(false);
-    await upsertContacts({
-      email: values.email || null,
-      phone: values.phone || null,
-      linkedin_url: values.linkedin_url || null,
-      github_url: values.github_url || null,
-      location: values.location || null,
-      hire_me_destination: values.hire_me_destination || null,
-    });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setError(null);
+    try {
+      await upsertContacts({
+        email: values.email || null,
+        phone: values.phone || null,
+        linkedin_url: values.linkedin_url || null,
+        github_url: values.github_url || null,
+        location: values.location || null,
+        hire_me_destination: values.hire_me_destination || null,
+      });
+      setSaving(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      setSaving(false);
+      setSaved(false);
+      setError(err instanceof Error ? err.message : 'Failed to save contacts.');
+    }
+  }
+
+  if (fetchError) {
+    return (
+      <section
+        className="rounded-[20px] p-6 flex flex-col gap-3"
+        style={{
+          backdropFilter: 'var(--intro-glass-filter)',
+          WebkitBackdropFilter: 'var(--intro-glass-filter)',
+          background: 'var(--intro-glass-bg)',
+          border: '1px solid var(--intro-glass-border)',
+        }}
+      >
+        <span className="text-red-600 dark:text-red-400 text-sm" role="alert">
+          Failed to load contacts: {fetchError}
+        </span>
+      </section>
+    );
   }
 
   return (
@@ -81,6 +108,11 @@ export function ContactsEditorForm({ initialContacts }: Props) {
           {saving ? 'Saving…' : 'Save'}
         </button>
         {saved && <span className="text-green-600 dark:text-green-400 text-sm">Saved!</span>}
+        {error && (
+          <span className="text-red-600 dark:text-red-400 text-sm" role="alert">
+            {error}
+          </span>
+        )}
       </div>
     </section>
   );

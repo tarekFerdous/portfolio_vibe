@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ProjectForm, ProjectsManagerClient } from './ProjectsManagerClient';
-import { setProjectVisibility } from '@/lib/actions/projects';
+import { setProjectVisibility, deleteProject, reorderProjects, upsertProject } from '@/lib/actions/projects';
+import type { DropResult } from '@hello-pangea/dnd';
 import type { Project } from '@/lib/supabase/types';
 
 vi.mock('@/lib/actions/projects', () => ({
@@ -11,6 +12,19 @@ vi.mock('@/lib/actions/projects', () => ({
   deleteProject: vi.fn().mockResolvedValue(undefined),
   reorderProjects: vi.fn().mockResolvedValue(undefined),
   setProjectVisibility: vi.fn().mockResolvedValue(undefined),
+}));
+
+let capturedOnDragEnd: ((result: DropResult) => void) | null = null;
+
+vi.mock('@hello-pangea/dnd', () => ({
+  DragDropContext: ({ children, onDragEnd }: { children: React.ReactNode; onDragEnd: (result: DropResult) => void }) => {
+    capturedOnDragEnd = onDragEnd;
+    return <div>{children}</div>;
+  },
+  Droppable: ({ children }: { children: (provided: unknown) => React.ReactNode }) =>
+    children({ innerRef: vi.fn(), droppableProps: {}, placeholder: null }),
+  Draggable: ({ children }: { children: (provided: unknown, snapshot: unknown) => React.ReactNode }) =>
+    children({ innerRef: vi.fn(), draggableProps: {}, dragHandleProps: {} }, { isDragging: false }),
 }));
 
 type EditingProject = Omit<Project, 'created_at' | 'updated_at'>;
@@ -35,6 +49,11 @@ function setup(project: EditingProject) {
   render(<ProjectForm project={project} onSave={onSave} onCancel={onCancel} />);
   return { onSave, onCancel };
 }
+
+beforeEach(() => {
+  capturedOnDragEnd = null;
+  window.confirm = vi.fn(() => true);
+});
 
 describe('ProjectForm - Description field', () => {
   it('renders with an existing project_description value shown in the textarea', () => {
@@ -111,5 +130,67 @@ describe('ProjectsManagerClient - visibility toggle', () => {
     render(<ProjectsManagerClient initialProjects={projects} />);
     fireEvent.click(screen.getByRole('button', { name: /toggle visibility/i }));
     await waitFor(() => expect(setProjectVisibility).toHaveBeenCalledWith('a', 'hidden'));
+  });
+
+  it('reverts the toggle and shows an inline error when the update fails', async () => {
+    (setProjectVisibility as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Toggle failed'));
+    const projects = [makeFullProject({ id: 'a', visibility: 'visible' })];
+    render(<ProjectsManagerClient initialProjects={projects} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /toggle visibility/i }));
+
+    await waitFor(() => expect(screen.getByText('Toggle failed')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /toggle visibility: currently visible/i })).toBeInTheDocument();
+  });
+});
+
+describe('ProjectForm - save error handling', () => {
+  it('shows an inline error and does not show "Saved!" when the save fails', async () => {
+    const project = makeProject();
+    const onSave = vi.fn().mockRejectedValue(new Error('Save failed'));
+    const onCancel = vi.fn();
+    render(<ProjectForm project={project} onSave={onSave} onCancel={onCancel} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(screen.getByText('Save failed')).toBeInTheDocument());
+    expect(screen.queryByText('Saved!')).not.toBeInTheDocument();
+  });
+});
+
+describe('ProjectsManagerClient - delete error handling', () => {
+  it('restores the row and shows an inline error when delete fails', async () => {
+    (deleteProject as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Delete failed'));
+    const projects = [makeFullProject({ id: 'a', name: 'Keep Me' })];
+    render(<ProjectsManagerClient initialProjects={projects} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /delete/i }));
+
+    await waitFor(() => expect(screen.getByText('Delete failed')).toBeInTheDocument());
+    expect(screen.getByText('Keep Me')).toBeInTheDocument();
+  });
+});
+
+describe('ProjectsManagerClient - reorder error handling', () => {
+  it('reverts the list order and shows an inline error when reorder fails', async () => {
+    (reorderProjects as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Reorder failed'));
+    const projects = [makeFullProject({ id: 'a', name: 'First' }), makeFullProject({ id: 'b', name: 'Second' })];
+    render(<ProjectsManagerClient initialProjects={projects} />);
+
+    await act(async () => {
+      capturedOnDragEnd?.({
+        draggableId: 'a',
+        type: 'DEFAULT',
+        source: { droppableId: 'projects', index: 0 },
+        destination: { droppableId: 'projects', index: 1 },
+        reason: 'DROP',
+        mode: 'FLUID',
+        combine: null,
+      } as DropResult);
+    });
+
+    await waitFor(() => expect(screen.getByText('Reorder failed')).toBeInTheDocument());
+    const names = screen.getAllByText(/^(First|Second)$/).map((el) => el.textContent);
+    expect(names).toEqual(['First', 'Second']);
   });
 });

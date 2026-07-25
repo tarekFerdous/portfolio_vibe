@@ -7,8 +7,9 @@ import { BlogBlockEditor, type Block } from '@/components/admin/BlogBlockEditor'
 import type { Blog, BlogBlock, BlogStatus } from '@/lib/supabase/types';
 
 interface Props {
-  blog: Blog;
+  blog: Blog | null;
   initialBlocks: BlogBlock[];
+  fetchError?: string | null;
 }
 
 function dbBlocksToEditorBlocks(dbBlocks: BlogBlock[]): Block[] {
@@ -19,35 +20,61 @@ function dbBlocksToEditorBlocks(dbBlocks: BlogBlock[]): Block[] {
   );
 }
 
-export function BlogEditorClient({ blog, initialBlocks }: Props) {
-  const [title, setTitle] = useState(blog.title);
-  const [publishDate, setPublishDate] = useState(blog.publish_date ?? '');
-  const [location, setLocation] = useState(blog.location ?? '');
-  const [status, setStatus] = useState<BlogStatus>(blog.status);
+export function BlogEditorClient({ blog, initialBlocks, fetchError }: Props) {
+  const [title, setTitle] = useState(blog?.title ?? '');
+  const [publishDate, setPublishDate] = useState(blog?.publish_date ?? '');
+  const [location, setLocation] = useState(blog?.location ?? '');
+  const [status, setStatus] = useState<BlogStatus>(blog?.status ?? 'draft');
   const [blocks, setBlocks] = useState<Block[]>(dbBlocksToEditorBlocks(initialBlocks));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  if (fetchError || !blog) {
+    return (
+      <div
+        role="alert"
+        className="rounded-[20px] p-5 text-sm text-red-600 dark:text-red-400"
+        style={{
+          backdropFilter: 'var(--intro-glass-filter)',
+          WebkitBackdropFilter: 'var(--intro-glass-filter)',
+          background: 'var(--intro-glass-bg)',
+          border: '1px solid var(--intro-glass-border)',
+        }}
+      >
+        Failed to load post: {fetchError ?? 'Unknown error.'}
+      </div>
+    );
+  }
+
+  const blogId = blog.id;
 
   async function handleSave() {
     setSaving(true);
     setSaved(false);
-    await upsertBlog({
-      id: blog.id,
-      title,
-      publish_date: publishDate || null,
-      location: location || null,
-      status,
-      blocks: blocks.map((b, i) => ({
-        id: b.id,
-        block_type: b.type,
-        content: b.type === 'text' ? b.content : null,
-        image_url: b.type === 'photo' ? b.image_url : null,
-        display_order: i,
-      })),
-    });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setSaveError(null);
+    try {
+      await upsertBlog({
+        id: blogId,
+        title,
+        publish_date: publishDate || null,
+        location: location || null,
+        status,
+        blocks: blocks.map((b, i) => ({
+          id: b.id,
+          block_type: b.type,
+          content: b.type === 'text' ? b.content : null,
+          image_url: b.type === 'photo' ? b.image_url : null,
+          display_order: i,
+        })),
+      });
+      setSaving(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      setSaving(false);
+      setSaveError(err instanceof Error ? err.message : 'Failed to save post.');
+    }
   }
 
   return (
@@ -142,7 +169,12 @@ export function BlogEditorClient({ blog, initialBlocks }: Props) {
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
-        {saved && <span className="text-green-600 dark:text-green-400 text-sm">Saved!</span>}
+        {saved && !saveError && <span className="text-green-600 dark:text-green-400 text-sm">Saved!</span>}
+        {saveError && (
+          <span role="alert" className="text-red-600 dark:text-red-400 text-sm">
+            {saveError}
+          </span>
+        )}
       </div>
     </div>
   );

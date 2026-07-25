@@ -1,8 +1,15 @@
 import { fetchProjects } from '@/lib/actions/projects';
 import { ProjectsManagerClient } from './ProjectsManagerClient';
+import type { Project } from '@/lib/supabase/types';
 
 export default async function ProjectsPage() {
-  const projects = await fetchProjects();
+  let projects: Project[] = [];
+  let fetchError: string | null = null;
+  try {
+    projects = await fetchProjects();
+  } catch (err) {
+    fetchError = err instanceof Error ? err.message : 'Failed to load projects.';
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -12,7 +19,7 @@ export default async function ProjectsPage() {
       >
         Projects
       </h1>
-      <ProjectsManagerClient initialProjects={projects} />
+      <ProjectsManagerClient initialProjects={projects} fetchError={fetchError} />
     </div>
   );
 }

@@ -1,8 +1,15 @@
 import { fetchBlogs } from '@/lib/actions/blogs';
 import { BlogListClient } from './BlogListClient';
+import type { Blog } from '@/lib/supabase/types';
 
 export default async function BlogPage() {
-  const blogs = await fetchBlogs();
+  let blogs: Blog[] = [];
+  let fetchError: string | null = null;
+  try {
+    blogs = await fetchBlogs();
+  } catch (err) {
+    fetchError = err instanceof Error ? err.message : 'Failed to load posts.';
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -12,7 +19,7 @@ export default async function BlogPage() {
       >
         Blog
       </h1>
-      <BlogListClient initialBlogs={blogs} />
+      <BlogListClient initialBlogs={blogs} fetchError={fetchError} />
     </div>
   );
 }

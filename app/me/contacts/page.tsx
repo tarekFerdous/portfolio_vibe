@@ -1,8 +1,15 @@
 import { fetchContacts } from '@/lib/actions/contacts';
 import { ContactsEditorForm } from './ContactsEditorForm';
+import type { Contacts } from '@/lib/supabase/types';
 
 export default async function ContactsPage() {
-  const contacts = await fetchContacts();
+  let contacts: Contacts | null = null;
+  let fetchError: string | null = null;
+  try {
+    contacts = await fetchContacts();
+  } catch (err) {
+    fetchError = err instanceof Error ? err.message : 'Failed to load contacts.';
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -12,7 +19,7 @@ export default async function ContactsPage() {
       >
         Contacts
       </h1>
-      <ContactsEditorForm initialContacts={contacts} />
+      <ContactsEditorForm initialContacts={contacts} fetchError={fetchError} />
     </div>
   );
 }

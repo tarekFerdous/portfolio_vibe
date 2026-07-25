@@ -11,31 +11,55 @@ interface Props {
   initialCovers: IntroCover[];
 }
 
+function toErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
 export function IntroEditorForm({ initialIntro, initialCovers }: Props) {
   const [title, setTitle] = useState(initialIntro?.title ?? '');
   const [summary, setSummary] = useState(initialIntro?.summary ?? '');
   const [covers, setCovers] = useState<IntroCover[]>(initialCovers);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
 
   async function handleSave() {
     setSaving(true);
     setSaved(false);
-    await upsertIntro({ title, summary });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setSaveError(null);
+    try {
+      await upsertIntro({ title, summary });
+      setSaving(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      setSaving(false);
+      setSaveError(toErrorMessage(err, 'Failed to save intro.'));
+    }
   }
 
   async function handleUploadCover(file: File) {
-    const cover = await uploadIntroCover(file);
-    setCovers((prev) => [...prev, cover]);
-    return cover.url;
+    setCoverError(null);
+    try {
+      const cover = await uploadIntroCover(file);
+      setCovers((prev) => [...prev, cover]);
+      return cover.url;
+    } catch (err) {
+      setCoverError(toErrorMessage(err, 'Failed to upload cover photo.'));
+      return '';
+    }
   }
 
   async function handleDeleteCover(cover: IntroCover) {
-    await deleteIntroCover(cover.id, cover.url);
+    setCoverError(null);
     setCovers((prev) => prev.filter((c) => c.id !== cover.id));
+    try {
+      await deleteIntroCover(cover.id, cover.url);
+    } catch (err) {
+      setCovers((prev) => [...prev, cover]);
+      setCoverError(toErrorMessage(err, 'Failed to delete cover photo.'));
+    }
   }
 
   return (
@@ -86,6 +110,11 @@ export function IntroEditorForm({ initialIntro, initialCovers }: Props) {
             {saving ? 'Saving…' : 'Save'}
           </button>
           {saved && <span className="text-green-600 dark:text-green-400 text-sm">Saved!</span>}
+          {saveError && (
+            <span role="alert" className="text-red-600 dark:text-red-400 text-sm">
+              {saveError}
+            </span>
+          )}
         </div>
       </section>
 
@@ -122,6 +151,11 @@ export function IntroEditorForm({ initialIntro, initialCovers }: Props) {
           onDelete={async () => {}}
           label="Add cover photo"
         />
+        {coverError && (
+          <span role="alert" className="text-red-600 dark:text-red-400 text-sm">
+            {coverError}
+          </span>
+        )}
       </section>
     </div>
   );

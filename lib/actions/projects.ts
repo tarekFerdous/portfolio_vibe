@@ -6,43 +6,50 @@ import type { Project } from '@/lib/supabase/types';
 
 export async function fetchProjects(): Promise<Project[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from('projects').select('*').order('display_order', { ascending: true });
+  const { data, error } = await supabase.from('projects').select('*').order('display_order', { ascending: true });
+  if (error) throw new Error(error.message);
   return data ?? [];
 }
 
 export async function fetchVisibleProjects(): Promise<Project[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('projects')
     .select('*')
     .eq('visibility', 'visible')
     .order('display_order', { ascending: true });
+  if (error) throw new Error(error.message);
   return data ?? [];
 }
 
 export async function setProjectVisibility(id: string, visibility: Project['visibility']): Promise<void> {
   const supabase = await createClient();
-  await supabase.from('projects').update({ visibility }).eq('id', id);
+  const { error } = await supabase.from('projects').update({ visibility }).eq('id', id);
+  if (error) throw new Error(error.message);
 }
 
 export async function upsertProject(project: Omit<Project, 'created_at' | 'updated_at'>): Promise<void> {
   const supabase = await createClient();
-  await supabase.from('projects').upsert({ ...project, updated_at: new Date().toISOString() });
+  const { error } = await supabase.from('projects').upsert({ ...project, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteProject(id: string, imageUrl: string | null): Promise<void> {
   const supabase = await createClient();
   if (imageUrl) await deleteImage('project-covers', imageUrl);
-  await supabase.from('projects').delete().eq('id', id);
+  const { error } = await supabase.from('projects').delete().eq('id', id);
+  if (error) throw new Error(error.message);
 }
 
 export async function reorderProjects(orderedIds: string[]): Promise<void> {
   const supabase = await createClient();
-  await Promise.all(
+  const results = await Promise.all(
     orderedIds.map((id, index) =>
       supabase.from('projects').update({ display_order: index }).eq('id', id)
     )
   );
+  const failed = results.find((result) => result.error);
+  if (failed?.error) throw new Error(failed.error.message);
 }
 
 export async function uploadProjectCover(file: File): Promise<string> {

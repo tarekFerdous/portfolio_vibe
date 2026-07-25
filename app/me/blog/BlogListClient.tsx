@@ -7,45 +7,73 @@ import type { Blog } from '@/lib/supabase/types';
 
 interface Props {
   initialBlogs: Blog[];
+  fetchError?: string | null;
 }
 
-export function BlogListClient({ initialBlogs }: Props) {
+export function BlogListClient({ initialBlogs, fetchError }: Props) {
   const [blogs, setBlogs] = useState<Blog[]>(initialBlogs);
   const [creating, setCreating] = useState(false);
+  const [newPostError, setNewPostError] = useState<string | null>(null);
+  const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
 
   async function handleNew() {
     setCreating(true);
-    const id = await upsertBlog({
-      title: 'Untitled Post',
-      publish_date: null,
-      location: null,
-      status: 'draft',
-      blocks: [],
-    });
-    const newBlog: Blog = {
-      id,
-      title: 'Untitled Post',
-      slug: '',
-      publish_date: null,
-      location: null,
-      status: 'draft',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    setBlogs((prev) => [newBlog, ...prev]);
-    setCreating(false);
-    window.location.href = `/me/blog/${id}`;
+    setNewPostError(null);
+    try {
+      const id = await upsertBlog({
+        title: 'Untitled Post',
+        publish_date: null,
+        location: null,
+        status: 'draft',
+        blocks: [],
+      });
+      window.location.href = `/me/blog/${id}`;
+    } catch (err) {
+      setNewPostError(err instanceof Error ? err.message : 'Failed to create post.');
+      setCreating(false);
+    }
   }
 
   async function handleDelete(id: string, title: string) {
     if (!confirm(`Delete "${title}"?`)) return;
-    await deleteBlog(id);
+    setDeleteErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    const previousBlogs = blogs;
     setBlogs((prev) => prev.filter((b) => b.id !== id));
+    try {
+      await deleteBlog(id);
+    } catch (err) {
+      setBlogs(previousBlogs);
+      setDeleteErrors((prev) => ({
+        ...prev,
+        [id]: err instanceof Error ? err.message : 'Failed to delete post.',
+      }));
+    }
+  }
+
+  if (fetchError) {
+    return (
+      <div
+        role="alert"
+        className="rounded-[20px] p-5 text-sm text-red-600 dark:text-red-400"
+        style={{
+          backdropFilter: 'var(--intro-glass-filter)',
+          WebkitBackdropFilter: 'var(--intro-glass-filter)',
+          background: 'var(--intro-glass-bg)',
+          border: '1px solid var(--intro-glass-border)',
+        }}
+      >
+        Failed to load posts: {fetchError}
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end gap-2">
         <button
           onClick={handleNew}
           disabled={creating}
@@ -54,6 +82,11 @@ export function BlogListClient({ initialBlogs }: Props) {
         >
           {creating ? 'Creating…' : '+ New post'}
         </button>
+        {newPostError && (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            {newPostError}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col gap-3">
@@ -94,12 +127,19 @@ export function BlogListClient({ initialBlogs }: Props) {
             >
               Edit
             </Link>
-            <button
-              onClick={() => handleDelete(blog.id, blog.title)}
-              className="text-sm text-red-400 hover:text-red-600 transition-colors"
-            >
-              Delete
-            </button>
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={() => handleDelete(blog.id, blog.title)}
+                className="text-sm text-red-400 hover:text-red-600 transition-colors"
+              >
+                Delete
+              </button>
+              {deleteErrors[blog.id] && (
+                <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+                  {deleteErrors[blog.id]}
+                </p>
+              )}
+            </div>
           </div>
         ))}
       </div>

@@ -6,23 +6,31 @@ import type { Intro, IntroCover } from '@/lib/supabase/types';
 
 export async function fetchIntro(): Promise<Intro | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from('intro').select('*').single();
+  const { data, error } = await supabase.from('intro').select('*').single();
+  if (error) throw new Error(error.message);
   return data;
 }
 
 export async function upsertIntro(values: { title: string; summary: string }): Promise<void> {
   const supabase = await createClient();
-  const { data: existing } = await supabase.from('intro').select('id').single();
+  const { data: existing, error: fetchError } = await supabase.from('intro').select('id').single();
+  if (fetchError) throw new Error(fetchError.message);
   if (existing) {
-    await supabase.from('intro').update({ ...values, updated_at: new Date().toISOString() }).eq('id', existing.id);
+    const { error } = await supabase
+      .from('intro')
+      .update({ ...values, updated_at: new Date().toISOString() })
+      .eq('id', existing.id);
+    if (error) throw new Error(error.message);
   } else {
-    await supabase.from('intro').insert({ ...values });
+    const { error } = await supabase.from('intro').insert({ ...values });
+    if (error) throw new Error(error.message);
   }
 }
 
 export async function fetchIntroCoverPool(): Promise<IntroCover[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from('intro_covers').select('*').order('created_at', { ascending: true });
+  const { data, error } = await supabase.from('intro_covers').select('*').order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
   return data ?? [];
 }
 
@@ -42,5 +50,6 @@ export async function uploadIntroCover(file: File): Promise<IntroCover> {
 export async function deleteIntroCover(id: string, url: string): Promise<void> {
   const supabase = await createClient();
   await deleteImage('intro-covers', url);
-  await supabase.from('intro_covers').delete().eq('id', id);
+  const { error } = await supabase.from('intro_covers').delete().eq('id', id);
+  if (error) throw new Error(error.message);
 }

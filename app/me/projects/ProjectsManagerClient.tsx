@@ -8,6 +8,11 @@ import type { Project } from '@/lib/supabase/types';
 
 interface Props {
   initialProjects: Project[];
+  fetchError?: string | null;
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
 }
 
 function SkillTagInput({ skills, onChange }: { skills: string[]; onChange: (s: string[]) => void }) {
@@ -67,13 +72,20 @@ export function ProjectForm({ project, onSave, onCancel }: { project: EditingPro
   const [values, setValues] = useState<EditingProject>(project);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   async function handleSave() {
     setSaving(true);
-    await onSave(values);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaveError(null);
+    try {
+      await onSave(values);
+      setSaving(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaving(false);
+      setSaveError(getErrorMessage(err, 'Failed to save project.'));
+    }
   }
 
   return (
@@ -142,28 +154,60 @@ export function ProjectForm({ project, onSave, onCancel }: { project: EditingPro
         >
           Cancel
         </button>
-        {saved && <span className="text-green-600 dark:text-green-400 text-xs">Saved!</span>}
+        {saved && !saveError && <span className="text-green-600 dark:text-green-400 text-xs">Saved!</span>}
+        {saveError && (
+          <span role="alert" className="text-red-500 dark:text-red-400 text-xs">
+            {saveError}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-export function ProjectsManagerClient({ initialProjects }: Props) {
+export function ProjectsManagerClient({ initialProjects, fetchError = null }: Props) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [reorderError, setReorderError] = useState<string | null>(null);
+
+  function setRowError(id: string, message: string | null) {
+    setRowErrors((prev) => {
+      const next = { ...prev };
+      if (message) {
+        next[id] = message;
+      } else {
+        delete next[id];
+      }
+      return next;
+    });
+  }
 
   async function handleSave(updated: EditingProject) {
     await upsertProject(updated);
     setProjects((prev) =>
       prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
     );
+    setRowError(updated.id, null);
     setExpandedId(null);
   }
 
   async function handleDelete(project: Project) {
     if (!confirm(`Delete "${project.name}"?`)) return;
-    await deleteProject(project.id, project.image_url);
+    const index = projects.findIndex((p) => p.id === project.id);
     setProjects((prev) => prev.filter((p) => p.id !== project.id));
+    setRowError(project.id, null);
+    try {
+      await deleteProject(project.id, project.image_url);
+    } catch (err) {
+      setProjects((prev) => {
+        const next = [...prev];
+        const restoreAt = index >= 0 && index <= next.length ? index : next.length;
+        next.splice(restoreAt, 0, project);
+        return next;
+      });
+      setRowError(project.id, getErrorMessage(err, 'Failed to delete project.'));
+    }
   }
 
   function handleNewProject() {
@@ -184,23 +228,43 @@ export function ProjectsManagerClient({ initialProjects }: Props) {
   }
 
   async function handleToggleVisibility(project: Project) {
-    const visibility = project.visibility === 'visible' ? 'hidden' : 'visible';
+    const previousVisibility = project.visibility;
+    const visibility = previousVisibility === 'visible' ? 'hidden' : 'visible';
     setProjects((prev) => prev.map((p) => (p.id === project.id ? { ...p, visibility } : p)));
-    await setProjectVisibility(project.id, visibility);
+    setRowError(project.id, null);
+    try {
+      await setProjectVisibility(project.id, visibility);
+    } catch (err) {
+      setProjects((prev) => prev.map((p) => (p.id === project.id ? { ...p, visibility: previousVisibility } : p)));
+      setRowError(project.id, getErrorMessage(err, 'Failed to update visibility.'));
+    }
   }
 
   async function onDragEnd(result: DropResult) {
     if (!result.destination) return;
+    const previousProjects = projects;
     const reordered = Array.from(projects);
     const [moved] = reordered.splice(result.source.index, 1);
     reordered.splice(result.destination.index, 0, moved);
     const withOrder = reordered.map((p, i) => ({ ...p, display_order: i }));
     setProjects(withOrder);
-    await reorderProjects(withOrder.map((p) => p.id));
+    setReorderError(null);
+    try {
+      await reorderProjects(withOrder.map((p) => p.id));
+    } catch (err) {
+      setProjects(previousProjects);
+      setReorderError(getErrorMessage(err, 'Failed to reorder projects.'));
+    }
   }
 
   return (
     <div className="flex flex-col gap-4">
+      {fetchError && (
+        <p role="alert" className="text-sm text-red-500 dark:text-red-400">
+          {fetchError}
+        </p>
+      )}
+
       <div className="flex justify-end">
         <button
           onClick={handleNewProject}
@@ -210,6 +274,12 @@ export function ProjectsManagerClient({ initialProjects }: Props) {
           + New project
         </button>
       </div>
+
+      {reorderError && (
+        <p role="alert" className="text-sm text-red-500 dark:text-red-400">
+          {reorderError}
+        </p>
+      )}
 
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId="projects">
@@ -269,6 +339,12 @@ export function ProjectsManagerClient({ initialProjects }: Props) {
                           Delete
                         </button>
                       </div>
+
+                      {rowErrors[project.id] && (
+                        <p role="alert" className="mt-2 text-xs text-red-500 dark:text-red-400">
+                          {rowErrors[project.id]}
+                        </p>
+                      )}
 
                       {expandedId === project.id && (
                         <ProjectForm
