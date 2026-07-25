@@ -16,6 +16,10 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
 
+// Keep in sync with the `projects_summary_max_length` check constraint in
+// supabase/migrations/006_add_project_summary_length_constraint.sql.
+const SUMMARY_MAX_LENGTH = 300;
+
 function SkillTagInput({ skills, onChange }: { skills: string[]; onChange: (s: string[]) => void }) {
   const [input, setInput] = useState('');
 
@@ -76,6 +80,12 @@ export function ProjectForm({ project, onSave, onCancel }: { project: EditingPro
   const [saveError, setSaveError] = useState<string | null>(null);
 
   async function handleSave() {
+    if (values.summary.length > SUMMARY_MAX_LENGTH) {
+      setSaveError(
+        `Summary must be ${SUMMARY_MAX_LENGTH} characters or fewer (currently ${values.summary.length}).`
+      );
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -107,6 +117,15 @@ export function ProjectForm({ project, onSave, onCancel }: { project: EditingPro
           rows={3}
           className="rounded-xl px-3 py-2 text-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 resize-none"
         />
+        <span
+          className={`text-xs self-end ${
+            values.summary.length > SUMMARY_MAX_LENGTH
+              ? 'text-red-500 dark:text-red-400'
+              : 'text-gray-400 dark:text-gray-500'
+          }`}
+        >
+          {values.summary.length}/{SUMMARY_MAX_LENGTH}
+        </span>
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Description</label>

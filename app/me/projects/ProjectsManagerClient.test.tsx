@@ -245,6 +245,41 @@ describe('ProjectForm - Randomize color', () => {
   });
 });
 
+describe('ProjectForm - Summary length validation', () => {
+  it('saves successfully when the summary is exactly at the 300 character limit', async () => {
+    const summary = 'a'.repeat(300);
+    const project = makeProject({ summary: '' });
+    const { onSave } = setup(project);
+
+    const label = screen.getByText('Summary');
+    const textarea = label.parentElement!.querySelector('textarea')!;
+    fireEvent.change(textarea, { target: { value: summary } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ summary })
+    ));
+  });
+
+  it('rejects a summary over the 300 character limit without calling onSave', async () => {
+    const summary = 'a'.repeat(301);
+    const project = makeProject({ summary: '' });
+    const { onSave } = setup(project);
+
+    const label = screen.getByText('Summary');
+    const textarea = label.parentElement!.querySelector('textarea')!;
+    fireEvent.change(textarea, { target: { value: summary } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Summary must be 300 characters or fewer/i)).toBeInTheDocument()
+    );
+    expect(onSave).not.toHaveBeenCalled();
+  });
+});
+
 describe('ProjectsManagerClient - reorder error handling', () => {
   it('reverts the list order and shows an inline error when reorder fails', async () => {
     (reorderProjects as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Reorder failed'));

@@ -47,4 +47,30 @@ describe('ProjectCard', () => {
     expect(image).toBeInTheDocument();
     expect(image.tagName).toBe('IMG');
   });
+
+  it('renders the longest real summary (Enki App, 230 chars) in full with no truncation', () => {
+    const longestSummary =
+      'An automated "dead man\'s switch" safety platform — if a user goes silent, a server-side escalation system automatically alerts trusted contacts and releases pre-configured emergency information, with no manual SOS action required.';
+    expect(longestSummary.length).toBe(230);
+    const project: Project = { ...baseProject, name: 'Enki App', summary: longestSummary };
+    render(<ProjectCard project={project} />);
+    const matches = screen.getAllByText(longestSummary);
+    expect(matches.length).toBeGreaterThan(0);
+    matches.forEach((el) => {
+      expect(el.className).not.toContain('line-clamp');
+    });
+  });
+
+  it('renders the longest real project name (45 chars) in full with no truncation', () => {
+    const longestName = 'Data Analytics and Visualization - OpenSearch';
+    expect(longestName.length).toBe(45);
+    const project: Project = { ...baseProject, name: longestName };
+    render(<ProjectCard project={project} />);
+    const headings = screen.getAllByRole('heading', { level: 2, name: longestName });
+    expect(headings.length).toBeGreaterThan(0);
+    headings.forEach((el) => {
+      expect(el.className).not.toContain('line-clamp');
+      expect(el.className).not.toContain('truncate');
+    });
+  });
 });

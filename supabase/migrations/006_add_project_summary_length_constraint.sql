@@ -1,0 +1,11 @@
+-- Bound projects.summary length so long entries can't squeeze the project
+-- card layout on small/medium screens (see PRD #84, issue #85).
+--
+-- Longest real summary today is "Enki App" at ~230 chars (single line, no
+-- embedded break). A few summaries (Voting App, Food Ordering, ML4Cyber)
+-- prefix an "NDA" disclaimer line before the actual summary, which consumes
+-- an extra rendered line independent of raw character count. 300 gives
+-- generous headroom over the longest current entry while accounting for
+-- that extra-line pattern. Existing rows are already under the limit, so
+-- this does not require any backfill; it only governs future inserts/edits.
+alter table projects add constraint projects_summary_max_length check (char_length(summary) <= 300);
