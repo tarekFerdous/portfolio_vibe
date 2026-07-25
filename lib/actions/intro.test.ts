@@ -19,14 +19,26 @@ beforeEach(() => {
 });
 
 describe('fetchIntro', () => {
-  it('throws when the Supabase query returns an error', async () => {
+  it('throws when the Supabase query returns a non-PGRST116 error', async () => {
     mockSupabase.from.mockReturnValue({
       select: vi.fn(() => ({
-        single: vi.fn(() => Promise.resolve({ data: null, error: { message: 'connection refused' } })),
+        single: vi.fn(() =>
+          Promise.resolve({ data: null, error: { message: 'connection refused', code: 'PGRST500' } })
+        ),
       })),
     });
 
     await expect(fetchIntro()).rejects.toThrow('connection refused');
+  });
+
+  it('returns null when the query returns PGRST116 (no row exists)', async () => {
+    mockSupabase.from.mockReturnValue({
+      select: vi.fn(() => ({
+        single: vi.fn(() => Promise.resolve({ data: null, error: { message: 'no rows', code: 'PGRST116' } })),
+      })),
+    });
+
+    await expect(fetchIntro()).resolves.toBeNull();
   });
 });
 
@@ -43,14 +55,29 @@ describe('fetchIntroCoverPool', () => {
 });
 
 describe('upsertIntro', () => {
-  it('throws when the existing-row lookup returns an error', async () => {
+  it('throws when the existing-row lookup returns a non-PGRST116 error', async () => {
     mockSupabase.from.mockReturnValue({
       select: vi.fn(() => ({
-        single: vi.fn(() => Promise.resolve({ data: null, error: { message: 'lookup failed' } })),
+        single: vi.fn(() =>
+          Promise.resolve({ data: null, error: { message: 'lookup failed', code: 'PGRST500' } })
+        ),
       })),
     });
 
     await expect(upsertIntro({ title: 'Engineer', summary: 'Bio' })).rejects.toThrow('lookup failed');
+  });
+
+  it('proceeds to the insert branch when the existing-row lookup returns PGRST116', async () => {
+    const insertSpy = vi.fn(() => Promise.resolve({ error: null }));
+    mockSupabase.from.mockReturnValue({
+      select: vi.fn(() => ({
+        single: vi.fn(() => Promise.resolve({ data: null, error: { message: 'no rows', code: 'PGRST116' } })),
+      })),
+      insert: insertSpy,
+    });
+
+    await expect(upsertIntro({ title: 'Engineer', summary: 'Bio' })).resolves.toBeUndefined();
+    expect(insertSpy).toHaveBeenCalled();
   });
 
   it('throws when the update call returns an error', async () => {
@@ -68,7 +95,7 @@ describe('upsertIntro', () => {
   it('throws when the insert call returns an error (no existing row)', async () => {
     mockSupabase.from.mockReturnValue({
       select: vi.fn(() => ({
-        single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+        single: vi.fn(() => Promise.resolve({ data: null, error: { code: 'PGRST116', message: 'no rows' } })),
       })),
       insert: vi.fn(() => Promise.resolve({ error: { message: 'insert failed' } })),
     });

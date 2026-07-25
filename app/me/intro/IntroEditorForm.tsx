@@ -9,13 +9,14 @@ import type { Intro, IntroCover } from '@/lib/supabase/types';
 interface Props {
   initialIntro: Intro | null;
   initialCovers: IntroCover[];
+  fetchError?: string | null;
 }
 
 function toErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
 
-export function IntroEditorForm({ initialIntro, initialCovers }: Props) {
+export function IntroEditorForm({ initialIntro, initialCovers, fetchError }: Props) {
   const [title, setTitle] = useState(initialIntro?.title ?? '');
   const [summary, setSummary] = useState(initialIntro?.summary ?? '');
   const [covers, setCovers] = useState<IntroCover[]>(initialCovers);
@@ -60,6 +61,24 @@ export function IntroEditorForm({ initialIntro, initialCovers }: Props) {
       setCovers((prev) => [...prev, cover]);
       setCoverError(toErrorMessage(err, 'Failed to delete cover photo.'));
     }
+  }
+
+  if (fetchError) {
+    return (
+      <section
+        className="rounded-[20px] p-6 flex flex-col gap-3"
+        style={{
+          backdropFilter: 'var(--intro-glass-filter)',
+          WebkitBackdropFilter: 'var(--intro-glass-filter)',
+          background: 'var(--intro-glass-bg)',
+          border: '1px solid var(--intro-glass-border)',
+        }}
+      >
+        <span className="text-red-600 dark:text-red-400 text-sm" role="alert">
+          Failed to load intro: {fetchError}
+        </span>
+      </section>
+    );
   }
 
   return (

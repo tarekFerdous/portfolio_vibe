@@ -7,14 +7,16 @@ import type { Intro, IntroCover } from '@/lib/supabase/types';
 export async function fetchIntro(): Promise<Intro | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from('intro').select('*').single();
-  if (error) throw new Error(error.message);
+  // PGRST116 = "no rows returned", which means no intro row has been created yet (not a query failure).
+  if (error && error.code !== 'PGRST116') throw new Error(error.message);
   return data;
 }
 
 export async function upsertIntro(values: { title: string; summary: string }): Promise<void> {
   const supabase = await createClient();
   const { data: existing, error: fetchError } = await supabase.from('intro').select('id').single();
-  if (fetchError) throw new Error(fetchError.message);
+  // PGRST116 = "no rows returned", which means no intro row exists yet (not a query failure).
+  if (fetchError && fetchError.code !== 'PGRST116') throw new Error(fetchError.message);
   if (existing) {
     const { error } = await supabase
       .from('intro')

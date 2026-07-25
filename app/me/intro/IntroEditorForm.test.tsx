@@ -54,6 +54,15 @@ describe('IntroEditorForm - save', () => {
   });
 });
 
+describe('IntroEditorForm - failed initial fetch', () => {
+  it('renders a visible error instead of the form when the initial fetch failed', () => {
+    render(<IntroEditorForm initialIntro={null} initialCovers={[]} fetchError="could not reach database" />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('could not reach database');
+    expect(screen.queryByPlaceholderText('e.g. Software Engineer')).not.toBeInTheDocument();
+  });
+});
+
 describe('IntroEditorForm - cover delete', () => {
   it('removes the cover on a successful delete', async () => {
     vi.mocked(deleteIntroCover).mockResolvedValue(undefined);

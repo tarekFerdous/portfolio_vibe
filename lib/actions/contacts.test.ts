@@ -30,12 +30,20 @@ beforeEach(() => {
 });
 
 describe('fetchContacts', () => {
-  it('throws when the Supabase query returns an error', async () => {
+  it('throws when the Supabase query returns a non-PGRST116 error', async () => {
     mockSupabase.from.mockReturnValue(
-      makeSelectSingleBuilder({ data: null, error: { message: 'query failed' } })
+      makeSelectSingleBuilder({ data: null, error: { message: 'query failed', code: 'PGRST500' } })
     );
 
     await expect(fetchContacts()).rejects.toThrow('query failed');
+  });
+
+  it('returns null when the query returns PGRST116 (no row exists)', async () => {
+    mockSupabase.from.mockReturnValue(
+      makeSelectSingleBuilder({ data: null, error: { message: 'no rows', code: 'PGRST116' } })
+    );
+
+    await expect(fetchContacts()).resolves.toBeNull();
   });
 
   it('returns the row when the query succeeds', async () => {
@@ -47,12 +55,25 @@ describe('fetchContacts', () => {
 });
 
 describe('upsertContacts', () => {
-  it('throws when the existence check returns an error', async () => {
+  it('throws when the existence check returns a non-PGRST116 error', async () => {
     mockSupabase.from.mockReturnValue(
-      makeSelectSingleBuilder({ data: null, error: { message: 'lookup failed' } })
+      makeSelectSingleBuilder({ data: null, error: { message: 'lookup failed', code: 'PGRST500' } })
     );
 
     await expect(upsertContacts(contactValues)).rejects.toThrow('lookup failed');
+  });
+
+  it('proceeds to the insert branch when the existence check returns PGRST116', async () => {
+    const selectBuilder = makeSelectSingleBuilder({
+      data: null,
+      error: { message: 'no rows', code: 'PGRST116' },
+    });
+    const insertSpy = vi.fn(() => Promise.resolve({ error: null }));
+    selectBuilder.insert = insertSpy;
+    mockSupabase.from.mockReturnValue(selectBuilder);
+
+    await expect(upsertContacts(contactValues)).resolves.toBeUndefined();
+    expect(insertSpy).toHaveBeenCalledWith({ ...contactValues });
   });
 
   it('throws when the update call returns an error', async () => {
@@ -65,7 +86,10 @@ describe('upsertContacts', () => {
   });
 
   it('throws when the insert call returns an error', async () => {
-    const selectBuilder = makeSelectSingleBuilder({ data: null, error: null });
+    const selectBuilder = makeSelectSingleBuilder({
+      data: null,
+      error: { code: 'PGRST116', message: 'no rows' },
+    });
     selectBuilder.insert = vi.fn(() => Promise.resolve({ error: { message: 'insert failed' } }));
     mockSupabase.from.mockReturnValue(selectBuilder);
 
