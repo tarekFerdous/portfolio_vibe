@@ -12,6 +12,8 @@ export type IntroCover = {
   created_at: string;
 };
 
+export type ProjectVisibility = 'visible' | 'hidden';
+
 export type Project = {
   id: string;
   name: string;
@@ -20,6 +22,7 @@ export type Project = {
   image_url: string | null;
   skills: string[];
   display_order: number;
+  visibility: ProjectVisibility;
   created_at: string;
   updated_at: string;
 };

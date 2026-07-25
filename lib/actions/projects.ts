@@ -10,6 +10,21 @@ export async function fetchProjects(): Promise<Project[]> {
   return data ?? [];
 }
 
+export async function fetchVisibleProjects(): Promise<Project[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('visibility', 'visible')
+    .order('display_order', { ascending: true });
+  return data ?? [];
+}
+
+export async function setProjectVisibility(id: string, visibility: Project['visibility']): Promise<void> {
+  const supabase = await createClient();
+  await supabase.from('projects').update({ visibility }).eq('id', id);
+}
+
 export async function upsertProject(project: Omit<Project, 'created_at' | 'updated_at'>): Promise<void> {
   const supabase = await createClient();
   await supabase.from('projects').upsert({ ...project, updated_at: new Date().toISOString() });

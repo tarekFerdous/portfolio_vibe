@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { ImageUploadZone } from '@/components/admin/ImageUploadZone';
-import { upsertProject, deleteProject, reorderProjects, uploadProjectCover, deleteProjectCover } from '@/lib/actions/projects';
+import { upsertProject, deleteProject, reorderProjects, uploadProjectCover, deleteProjectCover, setProjectVisibility } from '@/lib/actions/projects';
 import type { Project } from '@/lib/supabase/types';
 
 interface Props {
@@ -175,11 +175,18 @@ export function ProjectsManagerClient({ initialProjects }: Props) {
       image_url: null,
       skills: [],
       display_order: projects.length,
+      visibility: 'visible',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
     setProjects((prev) => [...prev, newProject]);
     setExpandedId(newProject.id);
+  }
+
+  async function handleToggleVisibility(project: Project) {
+    const visibility = project.visibility === 'visible' ? 'hidden' : 'visible';
+    setProjects((prev) => prev.map((p) => (p.id === project.id ? { ...p, visibility } : p)));
+    await setProjectVisibility(project.id, visibility);
   }
 
   async function onDragEnd(result: DropResult) {
@@ -216,7 +223,7 @@ export function ProjectsManagerClient({ initialProjects }: Props) {
                       {...provided.draggableProps}
                       className={`rounded-[20px] p-5 transition-shadow ${
                         snapshot.isDragging ? 'shadow-2xl' : ''
-                      }`}
+                      } ${project.visibility === 'hidden' ? 'opacity-50' : ''}`}
                       style={{
                         ...provided.draggableProps.style,
                         backdropFilter: 'var(--intro-glass-filter)',
@@ -235,6 +242,20 @@ export function ProjectsManagerClient({ initialProjects }: Props) {
                         >
                           {project.name || 'Untitled'}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleVisibility(project)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            project.visibility === 'visible' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                          aria-label={`Toggle visibility: currently ${project.visibility}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              project.visibility === 'visible' ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
                         <button
                           onClick={() => setExpandedId(expandedId === project.id ? null : project.id)}
                           className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
