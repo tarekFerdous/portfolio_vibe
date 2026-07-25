@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ProjectForm, ProjectsManagerClient } from './ProjectsManagerClient';
 import { setProjectVisibility, deleteProject, reorderProjects, upsertProject } from '@/lib/actions/projects';
+import { colorForId, pickRandomColor, projectColorPalette } from '@/lib/colors';
 import type { DropResult } from '@hello-pangea/dnd';
 import type { Project } from '@/lib/supabase/types';
 
@@ -13,6 +14,18 @@ vi.mock('@/lib/actions/projects', () => ({
   reorderProjects: vi.fn().mockResolvedValue(undefined),
   setProjectVisibility: vi.fn().mockResolvedValue(undefined),
 }));
+
+vi.mock('@/lib/colors', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/colors')>();
+  return {
+    ...actual,
+    // Keep the real palette-picking behavior by default so tests that don't
+    // care about randomization (e.g. the "+ New project" flow) still get a
+    // real, non-null palette color. Individual tests can override this with
+    // mockReturnValueOnce for a deterministic, distinguishable value.
+    pickRandomColor: vi.fn(actual.pickRandomColor),
+  };
+});
 
 let capturedOnDragEnd: ((result: DropResult) => void) | null = null;
 
@@ -168,6 +181,67 @@ describe('ProjectsManagerClient - delete error handling', () => {
 
     await waitFor(() => expect(screen.getByText('Delete failed')).toBeInTheDocument());
     expect(screen.getByText('Keep Me')).toBeInTheDocument();
+  });
+});
+
+describe('ProjectsManagerClient - bg_color backfill', () => {
+  beforeEach(() => {
+    (upsertProject as ReturnType<typeof vi.fn>).mockClear();
+  });
+
+  it('backfills a deterministic color via colorForId and persists it for a project with a null bg_color', async () => {
+    const projects = [makeFullProject({ id: 'a', name: 'No Color', bg_color: null })];
+    render(<ProjectsManagerClient initialProjects={projects} />);
+
+    await waitFor(() =>
+      expect(upsertProject).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'a', bg_color: colorForId('a') })
+      )
+    );
+  });
+
+  it('does not call upsertProject for a project that already has a bg_color', async () => {
+    const projects = [makeFullProject({ id: 'b', name: 'Has Color', bg_color: '#8b5cf6' })];
+    render(<ProjectsManagerClient initialProjects={projects} />);
+
+    await act(async () => {});
+
+    expect(upsertProject).not.toHaveBeenCalled();
+  });
+});
+
+describe('ProjectsManagerClient - new project bg_color', () => {
+  beforeEach(() => {
+    (upsertProject as ReturnType<typeof vi.fn>).mockClear();
+  });
+
+  it('assigns a non-null bg_color to a newly created project before any save', async () => {
+    render(<ProjectsManagerClient initialProjects={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ new project/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(upsertProject).toHaveBeenCalledTimes(1));
+    const savedProject = (upsertProject as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(savedProject.bg_color).not.toBeNull();
+    expect(projectColorPalette).toContain(savedProject.bg_color);
+  });
+});
+
+describe('ProjectForm - Randomize color', () => {
+  it('clicking Randomize updates the in-form bg_color, and Save persists the new value', async () => {
+    (pickRandomColor as ReturnType<typeof vi.fn>).mockReturnValueOnce('#00ff00');
+    const project = makeProject({ bg_color: '#8b5cf6' });
+    const { onSave } = setup(project);
+
+    fireEvent.click(screen.getByRole('button', { name: /randomize/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ bg_color: '#00ff00' })
+    ));
+    const savedProject = onSave.mock.calls[0][0];
+    expect(savedProject.bg_color).not.toBe('#8b5cf6');
   });
 });
 

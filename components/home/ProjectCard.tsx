@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { colorForId } from '@/lib/colors';
 import type { Project } from '@/lib/supabase/types';
 
 interface ProjectCardProps {
@@ -70,7 +71,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
       {/* Photo — fills remaining height on mobile, right half on desktop */}
       <div
-        className="relative flex-1 lg:flex-none lg:w-1/2 bg-neutral-200 dark:bg-neutral-700"
+        className="relative flex-1 lg:flex-none lg:w-1/2"
+        style={{ backgroundColor: project.bg_color ?? colorForId(project.id) }}
       >
         {project.image_url && (
           <Image src={project.image_url} alt={project.name} fill className="object-cover" />

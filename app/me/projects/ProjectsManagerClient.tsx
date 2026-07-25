@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { ImageUploadZone } from '@/components/admin/ImageUploadZone';
 import { upsertProject, deleteProject, reorderProjects, uploadProjectCover, deleteProjectCover, setProjectVisibility } from '@/lib/actions/projects';
+import { colorForId, pickRandomColor } from '@/lib/colors';
 import type { Project } from '@/lib/supabase/types';
 
 interface Props {
@@ -131,6 +132,20 @@ export function ProjectForm({ project, onSave, onCancel }: { project: EditingPro
           }}
           label="Upload project cover"
         />
+        <div className="flex items-center gap-2 pt-1">
+          <span
+            className="h-5 w-5 rounded-full border border-black/[0.08] dark:border-white/[0.08]"
+            style={{ backgroundColor: values.bg_color ?? undefined }}
+            aria-hidden="true"
+          />
+          <button
+            type="button"
+            onClick={() => setValues((v) => ({ ...v, bg_color: pickRandomColor() }))}
+            className="px-3 py-2 rounded-xl text-sm bg-black/[0.06] dark:bg-white/[0.08] text-gray-700 dark:text-gray-300 hover:bg-black/10 dark:hover:bg-white/[0.12] transition-colors"
+          >
+            Randomize
+          </button>
+        </div>
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Skills</label>
@@ -170,6 +185,31 @@ export function ProjectsManagerClient({ initialProjects, fetchError = null }: Pr
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [reorderError, setReorderError] = useState<string | null>(null);
+
+  // Backfill a deterministic accent color for pre-existing projects that
+  // predate the `bg_color` column, so the color a visitor already saw as the
+  // fallback (colorForId) becomes the persisted value. Runs once on mount;
+  // projects that already have a bg_color are left untouched.
+  useEffect(() => {
+    const needsBackfill = initialProjects.filter((p) => p.bg_color === null);
+    if (needsBackfill.length === 0) return;
+
+    async function backfillColors() {
+      for (const project of needsBackfill) {
+        const bg_color = colorForId(project.id);
+        const { created_at, updated_at, ...rest } = project;
+        try {
+          await upsertProject({ ...rest, bg_color });
+          setProjects((prev) => prev.map((p) => (p.id === project.id ? { ...p, bg_color } : p)));
+        } catch {
+          // Best-effort backfill; leave the row's bg_color as-is if persistence fails.
+        }
+      }
+    }
+
+    backfillColors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function setRowError(id: string, message: string | null) {
     setRowErrors((prev) => {
@@ -217,6 +257,7 @@ export function ProjectsManagerClient({ initialProjects, fetchError = null }: Pr
       summary: '',
       project_description: '',
       image_url: null,
+      bg_color: pickRandomColor(),
       skills: [],
       display_order: projects.length,
       visibility: 'visible',

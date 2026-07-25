@@ -20,6 +20,7 @@ export type Project = {
   summary: string;
   project_description: string;
   image_url: string | null;
+  bg_color: string | null;
   skills: string[];
   display_order: number;
   visibility: ProjectVisibility;
