@@ -63,7 +63,7 @@ function SkillTagInput({ skills, onChange }: { skills: string[]; onChange: (s: s
 
 type EditingProject = Omit<Project, 'created_at' | 'updated_at'>;
 
-function ProjectForm({ project, onSave, onCancel }: { project: EditingProject; onSave: (p: EditingProject) => Promise<void>; onCancel: () => void }) {
+export function ProjectForm({ project, onSave, onCancel }: { project: EditingProject; onSave: (p: EditingProject) => Promise<void>; onCancel: () => void }) {
   const [values, setValues] = useState<EditingProject>(project);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -92,6 +92,15 @@ function ProjectForm({ project, onSave, onCancel }: { project: EditingProject; o
           value={values.summary}
           onChange={(e) => setValues((v) => ({ ...v, summary: e.target.value }))}
           rows={3}
+          className="rounded-xl px-3 py-2 text-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 resize-none"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Description</label>
+        <textarea
+          value={values.project_description}
+          onChange={(e) => setValues((v) => ({ ...v, project_description: e.target.value }))}
+          rows={8}
           className="rounded-xl px-3 py-2 text-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 resize-none"
         />
       </div>
@@ -162,6 +171,7 @@ export function ProjectsManagerClient({ initialProjects }: Props) {
       id: crypto.randomUUID(),
       name: 'New Project',
       summary: '',
+      project_description: '',
       image_url: null,
       skills: [],
       display_order: projects.length,

@@ -16,6 +16,7 @@ export type Project = {
   id: string;
   name: string;
   summary: string;
+  project_description: string;
   image_url: string | null;
   skills: string[];
   display_order: number;
