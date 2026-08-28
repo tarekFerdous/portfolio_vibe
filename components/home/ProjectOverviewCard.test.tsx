@@ -6,15 +6,30 @@ import { projectOverviewSummary } from '@/lib/text';
 
 describe('ProjectOverviewCard', () => {
   it('renders the fixed color-accent panel background (#8b5cf6)', () => {
-    const { container } = render(<ProjectOverviewCard onGoToProjects={() => {}} />);
+    const { container } = render(
+      <ProjectOverviewCard onGoToProjects={() => {}} />,
+    );
     const panel = container.querySelector('div[style*="background-color"]');
     expect(panel).not.toBeNull();
     expect(panel).toHaveStyle({ backgroundColor: '#8b5cf6' });
   });
 
+  it('renders the placeholder icon inside the color-accent panel', () => {
+    const { container } = render(
+      <ProjectOverviewCard onGoToProjects={() => {}} />,
+    );
+    const panel = container.querySelector('div[style*="background-color"]');
+    expect(panel).not.toBeNull();
+    const icon = panel!.querySelector('svg[aria-hidden="true"]');
+    expect(icon).not.toBeNull();
+  });
+
   it('renders the static "Projects" heading in full with no truncation', () => {
     render(<ProjectOverviewCard onGoToProjects={() => {}} />);
-    const headings = screen.getAllByRole('heading', { level: 2, name: 'Projects' });
+    const headings = screen.getAllByRole('heading', {
+      level: 2,
+      name: 'Projects',
+    });
     expect(headings.length).toBeGreaterThan(0);
     headings.forEach((el) => {
       expect(el.className).not.toContain('line-clamp');
@@ -54,7 +69,9 @@ describe('ProjectOverviewCard', () => {
     recollapsedMatches.forEach((el) => {
       expect(el.className).toContain('line-clamp');
     });
-    expect(screen.getAllByRole('button', { name: /see more/i }).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole('button', { name: /see more/i }).length,
+    ).toBeGreaterThan(0);
   });
 
   it('calls onGoToProjects when a "Go to projects" button is clicked', () => {
@@ -71,8 +88,12 @@ describe('ProjectOverviewCard', () => {
     // CSSStyleDeclaration silently drops `font-size: clamp(...)` as an
     // unrecognized value, so element.style.fontSize would read back empty
     // even though the browser renders it correctly.
-    const html = renderToStaticMarkup(<ProjectOverviewCard onGoToProjects={() => {}} />);
-    const titleMatches = [...html.matchAll(/<h2[^>]*style="([^"]*)"[^>]*>Projects<\/h2>/g)];
+    const html = renderToStaticMarkup(
+      <ProjectOverviewCard onGoToProjects={() => {}} />,
+    );
+    const titleMatches = [
+      ...html.matchAll(/<h2[^>]*style="([^"]*)"[^>]*>Projects<\/h2>/g),
+    ];
     expect(titleMatches.length).toBeGreaterThan(0);
     titleMatches.forEach(([, style]) => {
       expect(style).toMatch(/font-size:clamp\(/);

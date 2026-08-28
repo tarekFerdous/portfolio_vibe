@@ -1,11 +1,14 @@
 import { projectOverviewSummary } from '@/lib/text';
 import { ProjectCardBody } from './ProjectCardBody';
+import { ProjectPlaceholderIcon } from './ProjectPlaceholderIcon';
 
 interface ProjectOverviewCardProps {
   onGoToProjects: () => void;
 }
 
-export function ProjectOverviewCard({ onGoToProjects }: ProjectOverviewCardProps) {
+export function ProjectOverviewCard({
+  onGoToProjects,
+}: ProjectOverviewCardProps) {
   return (
     <ProjectCardBody
       title="Projects"
@@ -17,7 +20,9 @@ export function ProjectOverviewCard({ onGoToProjects }: ProjectOverviewCardProps
         <div
           className="relative flex-shrink-0 h-[20vh] min-h-[150px] lg:h-auto lg:min-h-0 lg:flex-none lg:w-1/2"
           style={{ backgroundColor: '#8b5cf6' }}
-        />
+        >
+          <ProjectPlaceholderIcon />
+        </div>
       }
     />
   );
