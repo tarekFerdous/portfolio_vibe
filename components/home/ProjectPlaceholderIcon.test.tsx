@@ -44,6 +44,15 @@ describe('ProjectPlaceholderIcon', () => {
     });
   });
 
+  it('renders the icon with a thin strokeWidth of 1 instead of the Lucide default of 2', () => {
+    const html = renderToStaticMarkup(<ProjectPlaceholderIcon />);
+    const svgMatches = [...html.matchAll(/<svg[^>]*stroke-width="([^"]*)"[^>]*>/g)];
+    expect(svgMatches.length).toBeGreaterThan(0);
+    svgMatches.forEach(([, strokeWidth]) => {
+      expect(strokeWidth).toBe('1');
+    });
+  });
+
   it('takes no props', () => {
     expect(ProjectPlaceholderIcon.length).toBe(0);
   });

@@ -17,6 +17,10 @@ import { Image as ImageIcon } from 'lucide-react';
  * `cqmin` unit is 1% of whichever of that container's width/height is
  * smaller — so `70cqmin` is exactly "70% of the smaller of the panel's
  * width/height".
+ *
+ * `strokeWidth={1}` overrides Lucide's default of `2`: at this icon's large
+ * `70cqmin` display size, the default stroke reads as thick and heavy, so a
+ * thinner stroke keeps it a light, subtle glyph instead.
  */
 export function ProjectPlaceholderIcon() {
   return (
@@ -27,6 +31,7 @@ export function ProjectPlaceholderIcon() {
       <ImageIcon
         aria-hidden="true"
         className="text-gray-400"
+        strokeWidth={1}
         style={{ width: '70cqmin', height: '70cqmin' }}
       />
     </div>
