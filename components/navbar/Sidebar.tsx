@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { SquircleWrap } from '@/components/ui/SquircleWrap';
 import type { Contacts } from '@/lib/supabase/types';
 
@@ -66,6 +67,9 @@ const panelClass =
   'bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-black/[0.06] dark:border-white/[0.08] shadow-lg';
 
 export function Sidebar({ open, contacts }: { open: boolean; contacts?: Contacts | null }) {
+  const pathname = usePathname();
+  const isHome = pathname === '/';
+
   if (!open) return null;
 
   const navItems: NavItem[] = [
@@ -73,7 +77,7 @@ export function Sidebar({ open, contacts }: { open: boolean; contacts?: Contacts
     { label: 'Projects', href: '#projects', icon: <ProjectsIcon /> },
     { label: 'Blog', href: '/blog', icon: <BlogIcon /> },
     { label: 'Resume', href: '/tarek_ferdous_resume.pdf', icon: <ResumeIcon />, target: '_blank', rel: 'noopener noreferrer' },
-    { label: 'Contact', href: '#contact', icon: <ContactIcon /> },
+    { label: 'Contact', href: isHome ? '#contact' : '/#contact', icon: <ContactIcon /> },
   ];
 
   return (
