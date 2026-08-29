@@ -6,6 +6,8 @@ import type { Blog, BlogBlock } from '@/lib/supabase/types';
 
 vi.mock('@/lib/actions/blogs', () => ({
   upsertBlog: vi.fn(),
+  uploadBlogCover: vi.fn().mockResolvedValue('https://example.com/cover.jpg'),
+  deleteBlogCover: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/actions/images', () => ({
@@ -21,6 +23,9 @@ function makeBlog(overrides: Partial<Blog> = {}): Blog {
     publish_date: null,
     location: null,
     status: 'draft',
+    excerpt: null,
+    cover_image_url: null,
+    author: 'Tarek Ferdous',
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -60,5 +65,49 @@ describe('BlogEditorClient - save', () => {
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Save failed'));
     expect(screen.queryByText('Saved!')).not.toBeInTheDocument();
+  });
+});
+
+describe('BlogEditorClient - excerpt, author, and cover image', () => {
+  it('defaults the author field to Tarek Ferdous for a new post', () => {
+    render(<BlogEditorClient blog={makeBlog({ author: 'Tarek Ferdous' })} initialBlocks={initialBlocks} />);
+    const authorInput = screen.getByText('Author').nextElementSibling as HTMLInputElement;
+    expect(authorInput.value).toBe('Tarek Ferdous');
+  });
+
+  it('persists entered excerpt and author text on save', async () => {
+    (upsertBlog as ReturnType<typeof vi.fn>).mockResolvedValueOnce('blog-1');
+    render(<BlogEditorClient blog={makeBlog()} initialBlocks={initialBlocks} />);
+
+    const excerptInput = screen.getByText('Excerpt').nextElementSibling as HTMLTextAreaElement;
+    fireEvent.change(excerptInput, { target: { value: 'A short excerpt' } });
+
+    const authorInput = screen.getByText('Author').nextElementSibling as HTMLInputElement;
+    fireEvent.change(authorInput, { target: { value: 'Jane Doe' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(screen.getByText('Saved!')).toBeInTheDocument());
+    expect(upsertBlog).toHaveBeenCalledWith(
+      expect.objectContaining({ excerpt: 'A short excerpt', author: 'Jane Doe' })
+    );
+  });
+
+  it('uploads a cover image and persists its URL on save', async () => {
+    (upsertBlog as ReturnType<typeof vi.fn>).mockResolvedValueOnce('blog-1');
+    render(<BlogEditorClient blog={makeBlog()} initialBlocks={initialBlocks} />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['cover'], 'cover.jpg', { type: 'image/jpeg' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByRole('img', { name: /uploaded image/i })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(screen.getByText('Saved!')).toBeInTheDocument());
+    expect(upsertBlog).toHaveBeenCalledWith(
+      expect.objectContaining({ cover_image_url: 'https://example.com/cover.jpg' })
+    );
   });
 });

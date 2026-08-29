@@ -37,6 +37,9 @@ export type Blog = {
   publish_date: string | null;
   location: string | null;
   status: BlogStatus;
+  excerpt: string | null;
+  cover_image_url: string | null;
+  author: string;
   created_at: string;
   updated_at: string;
 };

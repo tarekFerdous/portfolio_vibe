@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { generateSlug } from '@/lib/utils/slug';
-import { fetchBlogs, fetchBlogWithBlocks, upsertBlog, deleteBlog } from './blogs';
+import {
+  fetchBlogs,
+  fetchBlogWithBlocks,
+  fetchPublishedBlogs,
+  fetchPublishedBlogBySlug,
+  upsertBlog,
+  deleteBlog,
+  uploadBlogCover,
+  deleteBlogCover,
+} from './blogs';
 
 describe('generateSlug', () => {
   it('converts title to lowercase kebab-case', () => {
@@ -26,6 +35,7 @@ describe('generateSlug', () => {
 
 vi.mock('./images', () => ({
   deleteImage: vi.fn().mockResolvedValue(undefined),
+  uploadImage: vi.fn().mockResolvedValue('https://example.com/cover.jpg'),
 }));
 
 type QueryResult = { data?: unknown; error?: { message: string; code?: string } | null };
@@ -94,6 +104,57 @@ describe('fetchBlogWithBlocks', () => {
   });
 });
 
+describe('fetchPublishedBlogs', () => {
+  it('returns only published rows and queries by status and publish_date', async () => {
+    const builder = makeBuilder({ data: [{ id: '1', status: 'published' }], error: null });
+    mockSupabase.from.mockReturnValueOnce(builder);
+    const result = await fetchPublishedBlogs();
+    expect(result).toEqual([{ id: '1', status: 'published' }]);
+    expect(builder.eq).toHaveBeenCalledWith('status', 'published');
+    expect(builder.order).toHaveBeenCalledWith('publish_date', { ascending: false });
+  });
+
+  it('throws when the query returns an error', async () => {
+    mockSupabase.from.mockReturnValueOnce(makeBuilder({ data: null, error: { message: 'boom' } }));
+    await expect(fetchPublishedBlogs()).rejects.toThrow('boom');
+  });
+});
+
+describe('fetchPublishedBlogBySlug', () => {
+  it('returns the blog and blocks for a published slug', async () => {
+    mockSupabase.from
+      .mockReturnValueOnce(makeBuilder({ data: { id: 'id-1', slug: 'my-post', status: 'published' }, error: null }))
+      .mockReturnValueOnce(makeBuilder({ data: [{ id: 'block-1' }], error: null }));
+    const result = await fetchPublishedBlogBySlug('my-post');
+    expect(result).toEqual({
+      blog: { id: 'id-1', slug: 'my-post', status: 'published' },
+      blocks: [{ id: 'block-1' }],
+    });
+  });
+
+  it('returns null when no published blog matches the slug (PGRST116)', async () => {
+    mockSupabase.from.mockReturnValueOnce(
+      makeBuilder({ data: null, error: { message: 'no rows', code: 'PGRST116' } })
+    );
+    const result = await fetchPublishedBlogBySlug('missing-slug');
+    expect(result).toBeNull();
+  });
+
+  it('throws when the blog query returns a real error', async () => {
+    mockSupabase.from.mockReturnValueOnce(
+      makeBuilder({ data: null, error: { message: 'connection failed', code: 'PGRST500' } })
+    );
+    await expect(fetchPublishedBlogBySlug('my-post')).rejects.toThrow('connection failed');
+  });
+
+  it('throws when the blocks query returns an error', async () => {
+    mockSupabase.from
+      .mockReturnValueOnce(makeBuilder({ data: { id: 'id-1' }, error: null }))
+      .mockReturnValueOnce(makeBuilder({ data: null, error: { message: 'blocks failed' } }));
+    await expect(fetchPublishedBlogBySlug('my-post')).rejects.toThrow('blocks failed');
+  });
+});
+
 describe('upsertBlog', () => {
   const baseValues = {
     id: 'blog-1',
@@ -135,6 +196,68 @@ describe('upsertBlog', () => {
       .mockReturnValueOnce(makeBuilder({ error: null })); // delete blocks succeeds
     const result = await upsertBlog(baseValues);
     expect(result).toBe('blog-1');
+  });
+
+  it('persists excerpt, cover_image_url, and author on the update branch', async () => {
+    const updateBuilder = makeBuilder({ error: null });
+    mockSupabase.from
+      .mockReturnValueOnce(updateBuilder) // update
+      .mockReturnValueOnce(makeBuilder({ error: null })); // delete blocks
+    await upsertBlog({
+      ...baseValues,
+      excerpt: 'An excerpt',
+      cover_image_url: 'https://example.com/cover.jpg',
+      author: 'Jane Doe',
+    });
+    expect(updateBuilder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        excerpt: 'An excerpt',
+        cover_image_url: 'https://example.com/cover.jpg',
+        author: 'Jane Doe',
+      })
+    );
+  });
+
+  it('persists excerpt, cover_image_url, and author on the insert branch', async () => {
+    const insertBuilder = makeBuilder({ data: { id: 'new-blog-id' }, error: null });
+    mockSupabase.from
+      .mockReturnValueOnce(insertBuilder) // insert
+      .mockReturnValueOnce(makeBuilder({ error: null })); // delete blocks
+    await upsertBlog({
+      title: 'Title',
+      publish_date: null,
+      location: null,
+      status: 'draft',
+      excerpt: 'An excerpt',
+      cover_image_url: 'https://example.com/cover.jpg',
+      author: 'Jane Doe',
+      blocks: [],
+    });
+    expect(insertBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        excerpt: 'An excerpt',
+        cover_image_url: 'https://example.com/cover.jpg',
+        author: 'Jane Doe',
+      })
+    );
+  });
+});
+
+describe('uploadBlogCover', () => {
+  it('uploads to the blog-photos bucket', async () => {
+    const { uploadImage } = await import('./images');
+    const file = new File(['data'], 'cover.jpg');
+    const url = await uploadBlogCover(file);
+    expect(uploadImage).toHaveBeenCalledWith('blog-photos', file);
+    expect(url).toBe('https://example.com/cover.jpg');
+  });
+});
+
+describe('deleteBlogCover', () => {
+  it('deletes from the blog-photos bucket', async () => {
+    const { deleteImage } = await import('./images');
+    await deleteBlogCover('https://example.com/cover.jpg');
+    expect(deleteImage).toHaveBeenCalledWith('blog-photos', 'https://example.com/cover.jpg');
   });
 });
 

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { upsertBlog } from '@/lib/actions/blogs';
+import { upsertBlog, uploadBlogCover, deleteBlogCover } from '@/lib/actions/blogs';
 import { uploadImage, deleteImage } from '@/lib/actions/images';
 import { BlogBlockEditor, type Block } from '@/components/admin/BlogBlockEditor';
+import { ImageUploadZone } from '@/components/admin/ImageUploadZone';
 import type { Blog, BlogBlock, BlogStatus } from '@/lib/supabase/types';
 
 interface Props {
@@ -25,6 +26,9 @@ export function BlogEditorClient({ blog, initialBlocks, fetchError }: Props) {
   const [publishDate, setPublishDate] = useState(blog?.publish_date ?? '');
   const [location, setLocation] = useState(blog?.location ?? '');
   const [status, setStatus] = useState<BlogStatus>(blog?.status ?? 'draft');
+  const [excerpt, setExcerpt] = useState(blog?.excerpt ?? '');
+  const [author, setAuthor] = useState(blog?.author ?? 'Tarek Ferdous');
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(blog?.cover_image_url ?? null);
   const [blocks, setBlocks] = useState<Block[]>(dbBlocksToEditorBlocks(initialBlocks));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -60,6 +64,9 @@ export function BlogEditorClient({ blog, initialBlocks, fetchError }: Props) {
         publish_date: publishDate || null,
         location: location || null,
         status,
+        excerpt: excerpt || null,
+        cover_image_url: coverImageUrl,
+        author,
         blocks: blocks.map((b, i) => ({
           id: b.id,
           block_type: b.type,
@@ -116,6 +123,41 @@ export function BlogEditorClient({ blog, initialBlocks, fetchError }: Props) {
               placeholder="e.g. Montreal, QC"
               className="rounded-xl px-4 py-3 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20"
               style={{ fontFamily: 'var(--font-recursive)' }}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Author</label>
+            <input
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              className="rounded-xl px-4 py-3 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20"
+              style={{ fontFamily: 'var(--font-recursive)' }}
+            />
+          </div>
+          <div className="flex flex-col gap-1 md:col-span-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Excerpt</label>
+            <textarea
+              value={excerpt}
+              onChange={(e) => setExcerpt(e.target.value)}
+              rows={3}
+              className="rounded-xl px-4 py-3 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 resize-none"
+              style={{ fontFamily: 'var(--font-recursive)' }}
+            />
+          </div>
+          <div className="flex flex-col gap-1 md:col-span-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Cover Image</label>
+            <ImageUploadZone
+              currentUrl={coverImageUrl}
+              onUpload={async (file) => {
+                const url = await uploadBlogCover(file);
+                setCoverImageUrl(url);
+                return url;
+              }}
+              onDelete={async (url) => {
+                await deleteBlogCover(url);
+                setCoverImageUrl(null);
+              }}
+              label="Upload cover image"
             />
           </div>
         </div>
