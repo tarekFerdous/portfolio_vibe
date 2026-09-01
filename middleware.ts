@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith('/me') && pathname !== '/me/login' && !pathname.startsWith('/auth')) {
-    if (!user) {
+    if (!user || user.email !== process.env.ADMIN_EMAIL) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = '/me/login';
       return NextResponse.redirect(loginUrl);
