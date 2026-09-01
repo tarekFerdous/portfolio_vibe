@@ -7,12 +7,25 @@ import { castVote, retractVote } from '@/lib/actions/comment-votes';
 import { deriveUsernameFromEmail } from '@/lib/utils/username';
 import { formatRelativeTime } from '@/lib/utils/relativeTime';
 import { InlineSignIn } from '@/components/comments/InlineSignIn';
-import { MAX_COMMENT_LENGTH, MAX_VISIBLE_DEPTH } from '@/components/comments/constants';
+import {
+  MAX_COMMENT_LENGTH,
+  MAX_VISIBLE_DEPTH,
+  COLLAPSE_SCORE_THRESHOLD,
+} from '@/components/comments/constants';
 import type { CommentNode } from '@/lib/utils/commentTree';
 import type { Comment, CommentVote } from '@/lib/supabase/types';
 import type { SessionState } from '@/components/comments/CommentsSection';
 
 const INDENT_STEP_PX = 24;
+
+/**
+ * Total number of descendants (children, grandchildren, …) below this node.
+ * Used for the collapsed-summary reply count — deliberately excludes the
+ * node itself so a leaf comment reports 0.
+ */
+function countDescendants(node: CommentNode): number {
+  return node.children.reduce((sum, child) => sum + 1 + countDescendants(child), 0);
+}
 
 interface CommentItemProps {
   node: CommentNode;
@@ -58,11 +71,21 @@ export function CommentItem({
   const [voteSubmitting, setVoteSubmitting] = useState(false);
   const [voteError, setVoteError] = useState('');
 
+  const commentVotes = votes.filter((v) => v.comment_id === node.id);
+  const score = commentVotes.reduce((sum, v) => sum + v.value, 0);
+
+  // Purely client-side ephemeral UI state: default collapsed once a thread
+  // passes MAX_VISIBLE_DEPTH (deep sub-threads don't overwhelm the page) OR
+  // once its net score sinks to/below COLLAPSE_SCORE_THRESHOLD (low-value
+  // comments start out of the way regardless of depth). Either trigger alone
+  // is sufficient. No fetch is involved in computing or toggling this.
+  const [isCollapsed, setIsCollapsed] = useState(
+    depth > MAX_VISIBLE_DEPTH || score <= COLLAPSE_SCORE_THRESHOLD
+  );
+
   const isOwnComment = node.author_id === currentUserId;
   const isDeleted = Boolean(node.deleted_at);
 
-  const commentVotes = votes.filter((v) => v.comment_id === node.id);
-  const score = commentVotes.reduce((sum, v) => sum + v.value, 0);
   const ownVoteValue = commentVotes.find((v) => v.voter_id === currentUserId)?.value ?? null;
 
   async function handleVote(value: 1 | -1) {
@@ -169,6 +192,51 @@ export function CommentItem({
   // push content off-screen on mobile; the data itself keeps nesting freely.
   const childIndent = depth < MAX_VISIBLE_DEPTH ? INDENT_STEP_PX : 0;
 
+  if (isCollapsed) {
+    const replyCount = countDescendants(node);
+    return (
+      <div className="flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={() => setIsCollapsed(false)}
+          aria-label="Expand comment thread"
+          className="w-full max-w-2xl rounded-2xl p-5 flex items-baseline gap-2 text-left hover:opacity-80 transition-opacity"
+          style={{
+            backdropFilter: 'var(--intro-glass-filter)',
+            WebkitBackdropFilter: 'var(--intro-glass-filter)',
+            background: 'var(--intro-glass-bg)',
+            border: '1px solid var(--intro-glass-border)',
+            boxShadow: 'var(--intro-glass-shadow)',
+          }}
+        >
+          <span
+            className="text-gray-900 dark:text-gray-50"
+            style={{
+              fontFamily: 'var(--font-recursive)',
+              fontVariationSettings: "'MONO' 0, 'CASL' 0, 'wght' 700, 'slnt' 0, 'CRSV' 0.5",
+              fontSize: '12pt',
+            }}
+          >
+            {isDeleted ? '[deleted]' : deriveUsernameFromEmail(node.author_email)}
+          </span>
+          <span
+            className="text-gray-500 dark:text-gray-400"
+            style={{ fontFamily: 'var(--font-recursive)', fontSize: '10pt' }}
+          >
+            {formatRelativeTime(node.created_at)}
+          </span>
+          <span
+            className="text-gray-500 dark:text-gray-400"
+            style={{ fontFamily: 'var(--font-recursive)', fontSize: '10pt' }}
+          >
+            · {replyCount} {replyCount === 1 ? 'reply' : 'replies'} ·{' '}
+            <span aria-label="Net score">score {score}</span> · Expand
+          </span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div
@@ -198,6 +266,18 @@ export function CommentItem({
           >
             {formatRelativeTime(node.created_at)}
           </span>
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(true)}
+            className="ml-auto text-gray-500 dark:text-gray-400 hover:opacity-80 transition-opacity"
+            style={{
+              fontFamily: 'var(--font-recursive)',
+              fontVariationSettings: "'MONO' 0, 'CASL' 0, 'wght' 700, 'slnt' 0, 'CRSV' 0.5",
+              fontSize: '10pt',
+            }}
+          >
+            Collapse
+          </button>
         </div>
         {isEditing ? (
           <form onSubmit={handleEditSubmit} className="mt-2 flex flex-col gap-3">

@@ -329,3 +329,206 @@ describe('CommentItem votes', () => {
     expect(mockRetractVote).not.toHaveBeenCalled();
   });
 });
+
+describe('CommentItem collapse', () => {
+  const MAX_VISIBLE_DEPTH = 6;
+  const COLLAPSE_SCORE_THRESHOLD = -2;
+
+  // Builds `count` unit votes (all -1, or all +1 for a positive count) on
+  // comment-1 so the resulting net score equals `total`.
+  function makeVotesSummingTo(total: number): CommentVote[] {
+    const value = total < 0 ? -1 : 1;
+    return Array.from({ length: Math.abs(total) }, (_, i) => ({
+      id: `v${i}`,
+      comment_id: 'comment-1',
+      voter_id: `voter-${i}`,
+      value,
+      created_at: new Date().toISOString(),
+    }));
+  }
+
+  function expectAllActionsUncalled() {
+    expect(mockPostComment).not.toHaveBeenCalled();
+    expect(mockUpdateComment).not.toHaveBeenCalled();
+    expect(mockSoftDeleteComment).not.toHaveBeenCalled();
+    expect(mockCastVote).not.toHaveBeenCalled();
+    expect(mockRetractVote).not.toHaveBeenCalled();
+  }
+
+  it('renders collapsed by default when depth exceeds MAX_VISIBLE_DEPTH', () => {
+    renderCommentItem({
+      node: makeNode({ content: 'Deeply nested content' }),
+      depth: MAX_VISIBLE_DEPTH + 1,
+    });
+
+    expect(screen.getByRole('button', { name: /expand/i })).toBeInTheDocument();
+    expect(screen.queryByText('Deeply nested content')).not.toBeInTheDocument();
+  });
+
+  it('renders expanded by default when depth is at MAX_VISIBLE_DEPTH', () => {
+    renderCommentItem({
+      node: makeNode({ content: 'At threshold content' }),
+      depth: MAX_VISIBLE_DEPTH,
+    });
+
+    expect(screen.getByText('At threshold content')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /expand/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /collapse/i })).toBeInTheDocument();
+  });
+
+  it('reveals full content and children when clicking the expand control', () => {
+    const child = makeNode({ id: 'comment-2', content: 'A child reply' });
+    // depth 0 so the child (depth 1) is at-or-below the threshold and
+    // expands by default once the parent is revealed.
+    renderCommentItem({
+      node: makeNode({ content: 'Parent content', children: [child] }),
+      depth: 0,
+    });
+
+    const [parentCollapseButton] = screen.getAllByRole('button', { name: /collapse/i });
+    fireEvent.click(parentCollapseButton);
+    expect(screen.queryByText('Parent content')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /expand/i }));
+
+    expect(screen.getByText('Parent content')).toBeInTheDocument();
+    expect(screen.getByText('A child reply')).toBeInTheDocument();
+  });
+
+  it('hides full content and children again when clicking the collapse control', () => {
+    const child = makeNode({ id: 'comment-2', content: 'A child reply' });
+    renderCommentItem({
+      node: makeNode({ content: 'Parent content', children: [child] }),
+      depth: 0,
+    });
+
+    expect(screen.getByText('Parent content')).toBeInTheDocument();
+    expect(screen.getByText('A child reply')).toBeInTheDocument();
+
+    // The child (also expanded) renders its own Collapse control too; the
+    // parent's is the first one in document order.
+    const [parentCollapseButton] = screen.getAllByRole('button', { name: /collapse/i });
+    fireEvent.click(parentCollapseButton);
+
+    expect(screen.queryByText('Parent content')).not.toBeInTheDocument();
+    expect(screen.queryByText('A child reply')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expand/i })).toBeInTheDocument();
+  });
+
+  it('shows a reply count reflecting the number of descendant comments in the collapsed summary', () => {
+    const grandchild = makeNode({ id: 'comment-3', content: 'Grandchild' });
+    const child = makeNode({ id: 'comment-2', content: 'Child', children: [grandchild] });
+    renderCommentItem({
+      node: makeNode({ content: 'Root', children: [child] }),
+      depth: MAX_VISIBLE_DEPTH + 1,
+    });
+
+    // 2 descendants: child + grandchild
+    expect(screen.getByText(/2 replies/i)).toBeInTheDocument();
+  });
+
+  it('does not call any mocked action when toggling collapse/expand', () => {
+    const child = makeNode({ id: 'comment-2', content: 'A child reply' });
+    renderCommentItem({
+      node: makeNode({ content: 'Parent content', children: [child] }),
+      depth: MAX_VISIBLE_DEPTH + 1,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /expand/i }));
+    fireEvent.click(screen.getByRole('button', { name: /collapse/i }));
+    fireEvent.click(screen.getByRole('button', { name: /expand/i }));
+
+    expectAllActionsUncalled();
+  });
+
+  it('computes each descendant\'s default collapse state independently when a parent is expanded', () => {
+    const deeplyNestedChild = makeNode({ id: 'comment-2', content: 'Deep child content' });
+    renderCommentItem({
+      node: makeNode({ content: 'Parent content', children: [deeplyNestedChild] }),
+      depth: MAX_VISIBLE_DEPTH, // child renders at depth MAX_VISIBLE_DEPTH + 1
+    });
+
+    // Parent (depth === MAX_VISIBLE_DEPTH) is expanded by default.
+    expect(screen.getByText('Parent content')).toBeInTheDocument();
+    // Child (depth === MAX_VISIBLE_DEPTH + 1) computes its own collapsed default.
+    expect(screen.queryByText('Deep child content')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expand/i })).toBeInTheDocument();
+  });
+
+  it('renders collapsed by default when net score is at or below COLLAPSE_SCORE_THRESHOLD, regardless of depth (score-only trigger)', () => {
+    renderCommentItem({
+      node: makeNode({ content: 'Low-value content' }),
+      depth: 0,
+      votes: makeVotesSummingTo(-3),
+    });
+
+    expect(screen.getByRole('button', { name: /expand/i })).toBeInTheDocument();
+    expect(screen.queryByText('Low-value content')).not.toBeInTheDocument();
+  });
+
+  it('still renders collapsed by default from the depth trigger alone when score is 0 (depth-only trigger)', () => {
+    renderCommentItem({
+      node: makeNode({ content: 'Deeply nested, unvoted content' }),
+      depth: MAX_VISIBLE_DEPTH + 1,
+      votes: [],
+    });
+
+    expect(screen.getByRole('button', { name: /expand/i })).toBeInTheDocument();
+    expect(screen.queryByText('Deeply nested, unvoted content')).not.toBeInTheDocument();
+  });
+
+  it('renders collapsed by default when both the depth and score triggers are met', () => {
+    renderCommentItem({
+      node: makeNode({ content: 'Deep and downvoted content' }),
+      depth: MAX_VISIBLE_DEPTH + 1,
+      votes: makeVotesSummingTo(COLLAPSE_SCORE_THRESHOLD),
+    });
+
+    expect(screen.getByRole('button', { name: /expand/i })).toBeInTheDocument();
+    expect(screen.queryByText('Deep and downvoted content')).not.toBeInTheDocument();
+  });
+
+  it('renders expanded by default when neither the depth nor the score trigger is met', () => {
+    renderCommentItem({
+      node: makeNode({ content: 'Healthy shallow content' }),
+      depth: 0,
+      votes: makeVotesSummingTo(COLLAPSE_SCORE_THRESHOLD + 1),
+    });
+
+    expect(screen.getByText('Healthy shallow content')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /expand/i })).not.toBeInTheDocument();
+  });
+
+  it('collapses exactly at the score threshold boundary (score === COLLAPSE_SCORE_THRESHOLD)', () => {
+    renderCommentItem({
+      node: makeNode({ content: 'Exactly at threshold' }),
+      depth: 0,
+      votes: makeVotesSummingTo(COLLAPSE_SCORE_THRESHOLD),
+    });
+
+    expect(screen.getByRole('button', { name: /expand/i })).toBeInTheDocument();
+    expect(screen.queryByText('Exactly at threshold')).not.toBeInTheDocument();
+  });
+
+  it('does not collapse just above the score threshold boundary (score === COLLAPSE_SCORE_THRESHOLD + 1)', () => {
+    renderCommentItem({
+      node: makeNode({ content: 'Just above threshold' }),
+      depth: 0,
+      votes: makeVotesSummingTo(COLLAPSE_SCORE_THRESHOLD + 1),
+    });
+
+    expect(screen.getByText('Just above threshold')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /expand/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the net score in the collapsed summary so a deep-but-high-scoring reply is not mistaken for low-value', () => {
+    renderCommentItem({
+      node: makeNode({ content: 'Score-collapsed content' }),
+      depth: 0,
+      votes: makeVotesSummingTo(-5),
+    });
+
+    expect(screen.getByRole('button', { name: /expand/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Net score')).toHaveTextContent('-5');
+  });
+});
