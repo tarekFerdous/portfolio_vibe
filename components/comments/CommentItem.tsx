@@ -1,13 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { postComment, updateComment, softDeleteComment } from '@/lib/actions/comments';
+import { castVote, retractVote } from '@/lib/actions/comment-votes';
 import { deriveUsernameFromEmail } from '@/lib/utils/username';
 import { formatRelativeTime } from '@/lib/utils/relativeTime';
 import { InlineSignIn } from '@/components/comments/InlineSignIn';
 import { MAX_COMMENT_LENGTH, MAX_VISIBLE_DEPTH } from '@/components/comments/constants';
 import type { CommentNode } from '@/lib/utils/commentTree';
-import type { Comment } from '@/lib/supabase/types';
+import type { Comment, CommentVote } from '@/lib/supabase/types';
 import type { SessionState } from '@/components/comments/CommentsSection';
 
 const INDENT_STEP_PX = 24;
@@ -18,9 +20,12 @@ interface CommentItemProps {
   blogId: string;
   sessionState: SessionState;
   currentUserId: string | null;
+  votes: CommentVote[];
   onCommentPosted: (comment: Comment) => void;
   onCommentUpdated: (comment: Comment) => void;
   onCommentDeleted: (comment: Comment) => void;
+  onVoteCast: (vote: CommentVote) => void;
+  onVoteRetracted: (commentId: string, voterId: string) => void;
 }
 
 export function CommentItem({
@@ -29,9 +34,12 @@ export function CommentItem({
   blogId,
   sessionState,
   currentUserId,
+  votes,
   onCommentPosted,
   onCommentUpdated,
   onCommentDeleted,
+  onVoteCast,
+  onVoteRetracted,
 }: CommentItemProps) {
   const [isReplying, setIsReplying] = useState(false);
   const [content, setContent] = useState('');
@@ -46,8 +54,40 @@ export function CommentItem({
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  const [isVotePromptOpen, setIsVotePromptOpen] = useState(false);
+  const [voteSubmitting, setVoteSubmitting] = useState(false);
+  const [voteError, setVoteError] = useState('');
+
   const isOwnComment = node.author_id === currentUserId;
   const isDeleted = Boolean(node.deleted_at);
+
+  const commentVotes = votes.filter((v) => v.comment_id === node.id);
+  const score = commentVotes.reduce((sum, v) => sum + v.value, 0);
+  const ownVoteValue = commentVotes.find((v) => v.voter_id === currentUserId)?.value ?? null;
+
+  async function handleVote(value: 1 | -1) {
+    if (sessionState !== 'signed-in' || !currentUserId) {
+      setIsVotePromptOpen(true);
+      return;
+    }
+
+    setIsVotePromptOpen(false);
+    setVoteSubmitting(true);
+    setVoteError('');
+    try {
+      if (ownVoteValue === value) {
+        await retractVote(node.id);
+        onVoteRetracted(node.id, currentUserId);
+      } else {
+        const vote = await castVote({ commentId: node.id, value });
+        onVoteCast(vote);
+      }
+    } catch (err) {
+      setVoteError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    } finally {
+      setVoteSubmitting(false);
+    }
+  }
 
   async function handleReplySubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -212,6 +252,47 @@ export function CommentItem({
           </p>
         )}
 
+        <div className="mt-2 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => handleVote(1)}
+            disabled={voteSubmitting}
+            aria-label="Upvote"
+            aria-pressed={ownVoteValue === 1}
+            className={`p-1 rounded-full hover:opacity-80 transition-opacity disabled:opacity-50 ${
+              ownVoteValue === 1 ? 'text-emerald-500 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'
+            }`}
+          >
+            <ChevronUp size={16} strokeWidth={ownVoteValue === 1 ? 3 : 2} />
+          </button>
+          <span
+            aria-label="Net score"
+            className="text-gray-700 dark:text-gray-300 min-w-[1.5ch] text-center"
+            style={{ fontFamily: 'var(--font-recursive)', fontSize: '10pt' }}
+          >
+            {score}
+          </span>
+          <button
+            type="button"
+            onClick={() => handleVote(-1)}
+            disabled={voteSubmitting}
+            aria-label="Downvote"
+            aria-pressed={ownVoteValue === -1}
+            className={`p-1 rounded-full hover:opacity-80 transition-opacity disabled:opacity-50 ${
+              ownVoteValue === -1 ? 'text-rose-500 dark:text-rose-400' : 'text-gray-400 dark:text-gray-500'
+            }`}
+          >
+            <ChevronDown size={16} strokeWidth={ownVoteValue === -1 ? 3 : 2} />
+          </button>
+        </div>
+        {voteError && <p className="mt-1 text-red-500 text-sm">{voteError}</p>}
+
+        {isVotePromptOpen && sessionState === 'signed-out' && (
+          <div className="mt-3">
+            <InlineSignIn />
+          </div>
+        )}
+
         {!isEditing && (
           <div className="mt-2 flex items-center gap-4">
             <button
@@ -302,9 +383,12 @@ export function CommentItem({
               blogId={blogId}
               sessionState={sessionState}
               currentUserId={currentUserId}
+              votes={votes}
               onCommentPosted={onCommentPosted}
               onCommentUpdated={onCommentUpdated}
               onCommentDeleted={onCommentDeleted}
+              onVoteCast={onVoteCast}
+              onVoteRetracted={onVoteRetracted}
             />
           ))}
         </div>

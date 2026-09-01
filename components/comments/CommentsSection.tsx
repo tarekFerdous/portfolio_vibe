@@ -6,18 +6,22 @@ import { postComment } from '@/lib/actions/comments';
 import { InlineSignIn } from '@/components/comments/InlineSignIn';
 import { CommentItem } from '@/components/comments/CommentItem';
 import { MAX_COMMENT_LENGTH } from '@/components/comments/constants';
-import { buildCommentTree } from '@/lib/utils/commentTree';
-import type { Comment } from '@/lib/supabase/types';
+import { buildCommentTree, sortCommentTree } from '@/lib/utils/commentTree';
+import type { SortMode } from '@/lib/utils/commentTree';
+import type { Comment, CommentVote } from '@/lib/supabase/types';
 
 interface CommentsSectionProps {
   blogId: string;
   initialComments: Comment[];
+  initialVotes: CommentVote[];
 }
 
 export type SessionState = 'loading' | 'signed-out' | 'signed-in';
 
-export function CommentsSection({ blogId, initialComments }: CommentsSectionProps) {
+export function CommentsSection({ blogId, initialComments, initialVotes }: CommentsSectionProps) {
   const [comments, setComments] = useState<Comment[]>(initialComments);
+  const [votes, setVotes] = useState<CommentVote[]>(initialVotes);
+  const [sortMode, setSortMode] = useState<SortMode>('top');
   const [sessionState, setSessionState] = useState<SessionState>('loading');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [content, setContent] = useState('');
@@ -79,16 +83,58 @@ export function CommentsSection({ blogId, initialComments }: CommentsSectionProp
     setComments((prev) => prev.map((c) => (c.id === comment.id ? comment : c)));
   }
 
-  const commentTree = buildCommentTree(comments);
+  function handleVoteCast(vote: CommentVote) {
+    setVotes((prev) => [...prev.filter((v) => !(v.comment_id === vote.comment_id && v.voter_id === vote.voter_id)), vote]);
+  }
+
+  function handleVoteRetracted(commentId: string, voterId: string) {
+    setVotes((prev) => prev.filter((v) => !(v.comment_id === commentId && v.voter_id === voterId)));
+  }
+
+  const commentTree = sortCommentTree(buildCommentTree(comments), sortMode, votes);
 
   return (
     <div className="mt-16 flex flex-col gap-6">
-      <h2
-        className="text-gray-900 dark:text-gray-50"
-        style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 100, fontSize: '32px', lineHeight: 1.1 }}
-      >
-        Comments
-      </h2>
+      <div className="flex items-baseline justify-between">
+        <h2
+          className="text-gray-900 dark:text-gray-50"
+          style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 100, fontSize: '32px', lineHeight: 1.1 }}
+        >
+          Comments
+        </h2>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSortMode('top')}
+            aria-pressed={sortMode === 'top'}
+            className={`hover:opacity-80 transition-opacity ${
+              sortMode === 'top' ? 'text-gray-900 dark:text-gray-50' : 'text-gray-500 dark:text-gray-400'
+            }`}
+            style={{
+              fontFamily: 'var(--font-recursive)',
+              fontVariationSettings: "'MONO' 0, 'CASL' 0, 'wght' 700, 'slnt' 0, 'CRSV' 0.5",
+              fontSize: '10pt',
+            }}
+          >
+            Top
+          </button>
+          <button
+            type="button"
+            onClick={() => setSortMode('newest')}
+            aria-pressed={sortMode === 'newest'}
+            className={`hover:opacity-80 transition-opacity ${
+              sortMode === 'newest' ? 'text-gray-900 dark:text-gray-50' : 'text-gray-500 dark:text-gray-400'
+            }`}
+            style={{
+              fontFamily: 'var(--font-recursive)',
+              fontVariationSettings: "'MONO' 0, 'CASL' 0, 'wght' 700, 'slnt' 0, 'CRSV' 0.5",
+              fontSize: '10pt',
+            }}
+          >
+            Newest
+          </button>
+        </div>
+      </div>
 
       {sessionState === 'signed-out' && <InlineSignIn />}
 
@@ -137,9 +183,12 @@ export function CommentsSection({ blogId, initialComments }: CommentsSectionProp
             blogId={blogId}
             sessionState={sessionState}
             currentUserId={currentUserId}
+            votes={votes}
             onCommentPosted={handleCommentPosted}
             onCommentUpdated={handleCommentUpdated}
             onCommentDeleted={handleCommentDeleted}
+            onVoteCast={handleVoteCast}
+            onVoteRetracted={handleVoteRetracted}
           />
         ))}
       </div>

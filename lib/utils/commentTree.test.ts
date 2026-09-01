@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildCommentTree } from '@/lib/utils/commentTree';
-import type { Comment } from '@/lib/supabase/types';
+import { buildCommentTree, sortCommentTree } from '@/lib/utils/commentTree';
+import type { Comment, CommentVote } from '@/lib/supabase/types';
 
 function makeComment(overrides: Partial<Comment> = {}): Comment {
   return {
@@ -13,6 +13,17 @@ function makeComment(overrides: Partial<Comment> = {}): Comment {
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
     deleted_at: null,
+    ...overrides,
+  };
+}
+
+function makeVote(overrides: Partial<CommentVote> = {}): CommentVote {
+  return {
+    id: 'vote-1',
+    comment_id: 'comment-1',
+    voter_id: 'user-2',
+    value: 1,
+    created_at: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
 }
@@ -77,5 +88,60 @@ describe('buildCommentTree', () => {
     const tree = buildCommentTree([third, first, second]);
 
     expect(tree.map((node) => node.id)).toEqual(['c3', 'c1', 'c2']);
+  });
+});
+
+describe('sortCommentTree', () => {
+  it('orders siblings by net score descending in "top" mode, including zero and negative scores', () => {
+    const zeroScore = makeComment({ id: 'c1', content: 'zero score' });
+    const positiveScore = makeComment({ id: 'c2', content: 'positive score' });
+    const negativeScore = makeComment({ id: 'c3', content: 'negative score' });
+    const tree = buildCommentTree([zeroScore, positiveScore, negativeScore]);
+    const votes = [
+      makeVote({ id: 'v1', comment_id: 'c2', voter_id: 'u1', value: 1 }),
+      makeVote({ id: 'v2', comment_id: 'c2', voter_id: 'u2', value: 1 }),
+      makeVote({ id: 'v3', comment_id: 'c3', voter_id: 'u1', value: -1 }),
+    ];
+
+    const sorted = sortCommentTree(tree, 'top', votes);
+
+    expect(sorted.map((node) => node.id)).toEqual(['c2', 'c1', 'c3']);
+  });
+
+  it('orders siblings by created_at descending in "newest" mode, independent of score', () => {
+    const oldest = makeComment({ id: 'c1', created_at: '2026-01-01T00:00:00.000Z' });
+    const newest = makeComment({ id: 'c2', created_at: '2026-01-03T00:00:00.000Z' });
+    const middle = makeComment({ id: 'c3', created_at: '2026-01-02T00:00:00.000Z' });
+    const tree = buildCommentTree([oldest, newest, middle]);
+    // Give the oldest comment the highest score to prove "newest" ignores votes.
+    const votes = [makeVote({ id: 'v1', comment_id: 'c1', voter_id: 'u1', value: 10 })];
+
+    const sorted = sortCommentTree(tree, 'newest', votes);
+
+    expect(sorted.map((node) => node.id)).toEqual(['c2', 'c3', 'c1']);
+  });
+
+  it('reorders siblings at every level of a multi-level tree without moving nodes to a different parent', () => {
+    const parent = makeComment({ id: 'p1' });
+    const childLow = makeComment({ id: 'c1', parent_comment_id: 'p1', content: 'low score child' });
+    const childHigh = makeComment({ id: 'c2', parent_comment_id: 'p1', content: 'high score child' });
+    const grandchildOld = makeComment({ id: 'g1', parent_comment_id: 'c2', created_at: '2026-01-01T00:00:00.000Z' });
+    const grandchildNew = makeComment({ id: 'g2', parent_comment_id: 'c2', created_at: '2026-01-02T00:00:00.000Z' });
+    const tree = buildCommentTree([parent, childLow, childHigh, grandchildOld, grandchildNew]);
+    const votes = [makeVote({ id: 'v1', comment_id: 'c2', voter_id: 'u1', value: 5 })];
+
+    const sorted = sortCommentTree(tree, 'top', votes);
+
+    expect(sorted).toHaveLength(1);
+    expect(sorted[0].id).toBe('p1');
+    expect(sorted[0].children.map((child) => child.id)).toEqual(['c2', 'c1']);
+
+    const sortedNewest = sortCommentTree(tree, 'newest', votes);
+    const highScoreChild = sortedNewest[0].children.find((child) => child.id === 'c2');
+    expect(highScoreChild?.children.map((grandchild) => grandchild.id)).toEqual(['g2', 'g1']);
+
+    // Original tree structure is untouched (sortCommentTree returns a new tree).
+    expect(tree[0].children.map((child) => child.id)).toEqual(['c1', 'c2']);
+    expect(tree[0].children[1].children.map((g) => g.id)).toEqual(['g1', 'g2']);
   });
 });

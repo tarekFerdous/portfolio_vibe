@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CommentItem } from './CommentItem';
 import { postComment, updateComment, softDeleteComment } from '@/lib/actions/comments';
-import type { Comment } from '@/lib/supabase/types';
+import { castVote, retractVote } from '@/lib/actions/comment-votes';
+import type { Comment, CommentVote } from '@/lib/supabase/types';
 import type { CommentNode } from '@/lib/utils/commentTree';
 
 vi.mock('@/lib/actions/comments', () => ({
@@ -11,9 +12,16 @@ vi.mock('@/lib/actions/comments', () => ({
   softDeleteComment: vi.fn(),
 }));
 
+vi.mock('@/lib/actions/comment-votes', () => ({
+  castVote: vi.fn(),
+  retractVote: vi.fn(),
+}));
+
 const mockPostComment = vi.mocked(postComment);
 const mockUpdateComment = vi.mocked(updateComment);
 const mockSoftDeleteComment = vi.mocked(softDeleteComment);
+const mockCastVote = vi.mocked(castVote);
+const mockRetractVote = vi.mocked(retractVote);
 
 function makeNode(overrides: Partial<CommentNode> = {}): CommentNode {
   return {
@@ -35,25 +43,32 @@ function renderCommentItem(overrides: Partial<React.ComponentProps<typeof Commen
   const onCommentPosted = vi.fn();
   const onCommentUpdated = vi.fn();
   const onCommentDeleted = vi.fn();
+  const onVoteCast = vi.fn();
+  const onVoteRetracted = vi.fn();
   const props = {
     node: makeNode(),
     depth: 0,
     blogId: 'blog-1',
     sessionState: 'signed-in' as const,
     currentUserId: 'user-1',
+    votes: [] as CommentVote[],
     onCommentPosted,
     onCommentUpdated,
     onCommentDeleted,
+    onVoteCast,
+    onVoteRetracted,
     ...overrides,
   };
   const utils = render(<CommentItem {...props} />);
-  return { ...utils, onCommentPosted, onCommentUpdated, onCommentDeleted, props };
+  return { ...utils, onCommentPosted, onCommentUpdated, onCommentDeleted, onVoteCast, onVoteRetracted, props };
 }
 
 beforeEach(() => {
   mockPostComment.mockReset();
   mockUpdateComment.mockReset();
   mockSoftDeleteComment.mockReset();
+  mockCastVote.mockReset();
+  mockRetractVote.mockReset();
 });
 
 describe('CommentItem edit', () => {
@@ -226,5 +241,91 @@ describe('CommentItem delete', () => {
     expect(screen.getByText('A live reply')).toBeInTheDocument();
     expect(screen.getByText('child')).toBeInTheDocument();
     expect(screen.queryByText('Parent content')).not.toBeInTheDocument();
+  });
+});
+
+describe('CommentItem votes', () => {
+  it('shows a net score of 0 when there are no votes', () => {
+    renderCommentItem({ votes: [] });
+    expect(screen.getByLabelText('Net score')).toHaveTextContent('0');
+  });
+
+  it('shows the summed net score for the comment\'s votes', () => {
+    renderCommentItem({
+      votes: [
+        { id: 'v1', comment_id: 'comment-1', voter_id: 'user-1', value: 1, created_at: new Date().toISOString() },
+        { id: 'v2', comment_id: 'comment-1', voter_id: 'user-2', value: 1, created_at: new Date().toISOString() },
+        { id: 'v3', comment_id: 'comment-1', voter_id: 'user-3', value: -1, created_at: new Date().toISOString() },
+      ],
+    });
+    expect(screen.getByLabelText('Net score')).toHaveTextContent('1');
+  });
+
+  it('marks the current user\'s active upvote as pressed, and the downvote as not pressed', () => {
+    renderCommentItem({
+      currentUserId: 'user-1',
+      votes: [{ id: 'v1', comment_id: 'comment-1', voter_id: 'user-1', value: 1, created_at: new Date().toISOString() }],
+    });
+    expect(screen.getByRole('button', { name: /upvote/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /downvote/i })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('marks the current user\'s active downvote as pressed, and the upvote as not pressed', () => {
+    renderCommentItem({
+      currentUserId: 'user-1',
+      votes: [{ id: 'v1', comment_id: 'comment-1', voter_id: 'user-1', value: -1, created_at: new Date().toISOString() }],
+    });
+    expect(screen.getByRole('button', { name: /downvote/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /upvote/i })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('casts an upvote when signed in and not previously voted', async () => {
+    const vote: CommentVote = { id: 'v1', comment_id: 'comment-1', voter_id: 'user-1', value: 1, created_at: new Date().toISOString() };
+    mockCastVote.mockResolvedValue(vote);
+    const { onVoteCast } = renderCommentItem({ currentUserId: 'user-1', votes: [] });
+
+    fireEvent.click(screen.getByRole('button', { name: /upvote/i }));
+
+    await waitFor(() => expect(mockCastVote).toHaveBeenCalledWith({ commentId: 'comment-1', value: 1 }));
+    expect(onVoteCast).toHaveBeenCalledWith(vote);
+  });
+
+  it('retracts the vote when clicking the already-active upvote button', async () => {
+    mockRetractVote.mockResolvedValue(undefined);
+    const { onVoteRetracted } = renderCommentItem({
+      currentUserId: 'user-1',
+      votes: [{ id: 'v1', comment_id: 'comment-1', voter_id: 'user-1', value: 1, created_at: new Date().toISOString() }],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /upvote/i }));
+
+    await waitFor(() => expect(mockRetractVote).toHaveBeenCalledWith('comment-1'));
+    expect(onVoteRetracted).toHaveBeenCalledWith('comment-1', 'user-1');
+    expect(mockCastVote).not.toHaveBeenCalled();
+  });
+
+  it('changes an existing upvote to a downvote (upsert) when the other button is clicked', async () => {
+    const vote: CommentVote = { id: 'v1', comment_id: 'comment-1', voter_id: 'user-1', value: -1, created_at: new Date().toISOString() };
+    mockCastVote.mockResolvedValue(vote);
+    const { onVoteCast } = renderCommentItem({
+      currentUserId: 'user-1',
+      votes: [{ id: 'v1', comment_id: 'comment-1', voter_id: 'user-1', value: 1, created_at: new Date().toISOString() }],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /downvote/i }));
+
+    await waitFor(() => expect(mockCastVote).toHaveBeenCalledWith({ commentId: 'comment-1', value: -1 }));
+    expect(onVoteCast).toHaveBeenCalledWith(vote);
+    expect(mockRetractVote).not.toHaveBeenCalled();
+  });
+
+  it('shows the sign-in prompt instead of calling castVote when signed out', () => {
+    renderCommentItem({ sessionState: 'signed-out', currentUserId: null, votes: [] });
+
+    fireEvent.click(screen.getByRole('button', { name: /upvote/i }));
+
+    expect(screen.getByText(/sign in to comment/i)).toBeInTheDocument();
+    expect(mockCastVote).not.toHaveBeenCalled();
+    expect(mockRetractVote).not.toHaveBeenCalled();
   });
 });

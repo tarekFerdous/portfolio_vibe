@@ -67,6 +67,14 @@ export type Comment = {
   deleted_at: string | null;
 };
 
+export type CommentVote = {
+  id: string;
+  comment_id: string;
+  voter_id: string;
+  value: number;
+  created_at: string;
+};
+
 export type Contacts = {
   id: string;
   email: string | null;

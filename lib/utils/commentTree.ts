@@ -1,6 +1,8 @@
-import type { Comment } from '@/lib/supabase/types';
+import type { Comment, CommentVote } from '@/lib/supabase/types';
 
 export type CommentNode = Comment & { children: CommentNode[] };
+
+export type SortMode = 'top' | 'newest';
 
 /**
  * Assembles a flat, already-fetched comment list into a nested tree keyed by
@@ -31,4 +33,21 @@ export function buildCommentTree(comments: Comment[]): CommentNode[] {
   }
 
   return roots;
+}
+
+/**
+ * Reorders siblings at every level of an already-built tree without moving
+ * any node to a different parent. Returns a fresh tree (new arrays/objects)
+ * so it's safe to call on every render.
+ */
+export function sortCommentTree(nodes: CommentNode[], mode: SortMode, votes: CommentVote[]): CommentNode[] {
+  const scoreOf = (node: CommentNode) => votes.filter((v) => v.comment_id === node.id).reduce((sum, v) => sum + v.value, 0);
+
+  const sorted = [...nodes].sort((a, b) =>
+    mode === 'top'
+      ? scoreOf(b) - scoreOf(a)
+      : new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  return sorted.map((node) => ({ ...node, children: sortCommentTree(node.children, mode, votes) }));
 }
