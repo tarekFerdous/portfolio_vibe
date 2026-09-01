@@ -47,6 +47,15 @@ describe('middleware /me guard', () => {
     expect(response.headers.get('location')).toBeNull();
   });
 
+  it('guards /me/comments the same as any other /me/:path* route', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { email: 'someone-else@example.com' } } });
+
+    const response = await middleware(requestFor('/me/comments'));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://example.com/me/login');
+  });
+
   it('does not guard /me/login itself', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } });
 

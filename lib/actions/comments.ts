@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import type { Comment } from '@/lib/supabase/types';
+import type { Comment, CommentWithBlog } from '@/lib/supabase/types';
 
 export async function fetchCommentsForBlog(blogId: string): Promise<Comment[]> {
   const supabase = await createClient();
@@ -10,6 +10,16 @@ export async function fetchCommentsForBlog(blogId: string): Promise<Comment[]> {
     .select('*')
     .eq('blog_id', blogId)
     .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function fetchAllCommentsForModeration(): Promise<CommentWithBlog[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*, blogs(title, slug)')
+    .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
 }
@@ -69,6 +79,18 @@ export async function softDeleteComment(commentId: string): Promise<Comment> {
   const { data, error } = await supabase
     .from('comments')
     .update({ deleted_at: new Date().toISOString() })
+    .eq('id', commentId)
+    .select('*')
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function moderateRemoveComment(commentId: string): Promise<Comment> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('comments')
+    .update({ deleted_at: new Date().toISOString(), removed_by_moderator: true })
     .eq('id', commentId)
     .select('*')
     .single();

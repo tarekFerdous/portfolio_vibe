@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchCommentsForBlog, postComment, updateComment, softDeleteComment } from './comments';
+import {
+  fetchCommentsForBlog,
+  fetchAllCommentsForModeration,
+  postComment,
+  updateComment,
+  softDeleteComment,
+  moderateRemoveComment,
+} from './comments';
 
 type QueryResult = { data?: unknown; error?: { message: string; code?: string } | null };
 
@@ -47,6 +54,28 @@ describe('fetchCommentsForBlog', () => {
   it('throws when the query returns an error', async () => {
     mockSupabase.from.mockReturnValueOnce(makeBuilder({ data: null, error: { message: 'boom' } }));
     await expect(fetchCommentsForBlog('blog-1')).rejects.toThrow('boom');
+  });
+});
+
+describe('fetchAllCommentsForModeration', () => {
+  it('returns all comments across all posts, newest-first, joined to their post', async () => {
+    const builder = makeBuilder({
+      data: [{ id: 'c1', blog_id: 'blog-1', blogs: { title: 'Post One', slug: 'post-one' } }],
+      error: null,
+    });
+    mockSupabase.from.mockReturnValueOnce(builder);
+
+    const result = await fetchAllCommentsForModeration();
+
+    expect(mockSupabase.from).toHaveBeenCalledWith('comments');
+    expect(builder.select).toHaveBeenCalledWith('*, blogs(title, slug)');
+    expect(builder.order).toHaveBeenCalledWith('created_at', { ascending: false });
+    expect(result).toEqual([{ id: 'c1', blog_id: 'blog-1', blogs: { title: 'Post One', slug: 'post-one' } }]);
+  });
+
+  it('throws when the query returns an error', async () => {
+    mockSupabase.from.mockReturnValueOnce(makeBuilder({ data: null, error: { message: 'boom' } }));
+    await expect(fetchAllCommentsForModeration()).rejects.toThrow('boom');
   });
 });
 
@@ -145,5 +174,29 @@ describe('softDeleteComment', () => {
     );
 
     await expect(softDeleteComment('c1')).rejects.toThrow('new row violates row-level security policy');
+  });
+});
+
+describe('moderateRemoveComment', () => {
+  it('sets deleted_at and removed_by_moderator together on the given comment on success', async () => {
+    const builder = makeBuilder({
+      data: { id: 'c1', deleted_at: new Date().toISOString(), removed_by_moderator: true },
+      error: null,
+    });
+    mockSupabase.from.mockReturnValueOnce(builder);
+
+    const result = await moderateRemoveComment('c1');
+
+    expect(builder.update).toHaveBeenCalledWith({ deleted_at: expect.any(String), removed_by_moderator: true });
+    expect(builder.eq).toHaveBeenCalledWith('id', 'c1');
+    expect(result).toEqual({ id: 'c1', deleted_at: expect.any(String), removed_by_moderator: true });
+  });
+
+  it('rejects when the update is denied by RLS (non-admin identity)', async () => {
+    mockSupabase.from.mockReturnValueOnce(
+      makeBuilder({ data: null, error: { message: 'new row violates row-level security policy' } })
+    );
+
+    await expect(moderateRemoveComment('c1')).rejects.toThrow('new row violates row-level security policy');
   });
 });

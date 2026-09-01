@@ -65,6 +65,11 @@ export type Comment = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  removed_by_moderator: boolean;
+};
+
+export type CommentWithBlog = Comment & {
+  blogs: { title: string; slug: string } | null;
 };
 
 export type CommentVote = {

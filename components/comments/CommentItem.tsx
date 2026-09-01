@@ -85,6 +85,7 @@ export function CommentItem({
 
   const isOwnComment = node.author_id === currentUserId;
   const isDeleted = Boolean(node.deleted_at);
+  const deletedLabel = node.removed_by_moderator ? '[removed by moderator]' : '[deleted]';
 
   const ownVoteValue = commentVotes.find((v) => v.voter_id === currentUserId)?.value ?? null;
 
@@ -217,7 +218,7 @@ export function CommentItem({
               fontSize: '12pt',
             }}
           >
-            {isDeleted ? '[deleted]' : deriveUsernameFromEmail(node.author_email)}
+            {isDeleted ? deletedLabel : deriveUsernameFromEmail(node.author_email)}
           </span>
           <span
             className="text-gray-500 dark:text-gray-400"
@@ -258,7 +259,7 @@ export function CommentItem({
               fontSize: '12pt',
             }}
           >
-            {isDeleted ? '[deleted]' : deriveUsernameFromEmail(node.author_email)}
+            {isDeleted ? deletedLabel : deriveUsernameFromEmail(node.author_email)}
           </span>
           <span
             className="text-gray-500 dark:text-gray-400"
@@ -321,7 +322,7 @@ export function CommentItem({
             className="mt-2 text-gray-500 dark:text-gray-400 italic"
             style={{ fontFamily: 'var(--font-recursive)', fontSize: '12pt' }}
           >
-            [deleted]
+            {deletedLabel}
           </p>
         ) : (
           <p

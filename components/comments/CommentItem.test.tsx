@@ -34,6 +34,7 @@ function makeNode(overrides: Partial<CommentNode> = {}): CommentNode {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     deleted_at: null,
+    removed_by_moderator: false,
     children: [],
     ...overrides,
   };
@@ -216,6 +217,20 @@ describe('CommentItem delete', () => {
     expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /reply/i })).toBeInTheDocument();
+  });
+
+  it('renders "[removed by moderator]" instead of "[deleted]" when removed_by_moderator is set', () => {
+    renderCommentItem({
+      node: makeNode({
+        deleted_at: new Date().toISOString(),
+        removed_by_moderator: true,
+        content: 'Hello world',
+      }),
+      currentUserId: 'someone-else',
+    });
+
+    expect(screen.getAllByText('[removed by moderator]').length).toBeGreaterThan(0);
+    expect(screen.queryByText('[deleted]')).not.toBeInTheDocument();
   });
 
   it('renders a live (non-deleted) reply normally when its parent is deleted', () => {

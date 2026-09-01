@@ -9,6 +9,7 @@ const sections = [
   { label: 'Projects', href: '/me/projects' },
   { label: 'Blog', href: '/me/blog' },
   { label: 'Contacts', href: '/me/contacts' },
+  { label: 'Comments', href: '/me/comments' },
 ];
 
 export function AdminSidebar() {
