@@ -21,7 +21,7 @@ describe('Sidebar', () => {
   });
 
   it('points the Contact link back to the home page hash on a non-home route', () => {
-    mockUsePathname.mockReturnValue('/blog');
+    mockUsePathname.mockReturnValue('/posts');
     render(<Sidebar open />);
     const contactLinks = screen.getAllByText('Contact');
     contactLinks.forEach((label) => {
@@ -31,7 +31,7 @@ describe('Sidebar', () => {
   });
 
   it('leaves the other nav items unchanged regardless of route', () => {
-    mockUsePathname.mockReturnValue('/blog');
+    mockUsePathname.mockReturnValue('/posts');
     render(<Sidebar open />);
 
     screen.getAllByText('About').forEach((label) => {
@@ -40,8 +40,8 @@ describe('Sidebar', () => {
     screen.getAllByText('Projects').forEach((label) => {
       expect(label.closest('a')).toHaveAttribute('href', '#projects');
     });
-    screen.getAllByText('Blog').forEach((label) => {
-      expect(label.closest('a')).toHaveAttribute('href', '/blog');
+    screen.getAllByText('Posts').forEach((label) => {
+      expect(label.closest('a')).toHaveAttribute('href', '/posts');
     });
     screen.getAllByText('Resume').forEach((label) => {
       const link = label.closest('a');

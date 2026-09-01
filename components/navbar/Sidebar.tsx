@@ -75,7 +75,7 @@ export function Sidebar({ open, contacts }: { open: boolean; contacts?: Contacts
   const navItems: NavItem[] = [
     { label: 'About', href: '#about', icon: <AboutIcon /> },
     { label: 'Projects', href: '#projects', icon: <ProjectsIcon /> },
-    { label: 'Blog', href: '/blog', icon: <BlogIcon /> },
+    { label: 'Posts', href: '/posts', icon: <BlogIcon /> },
     { label: 'Resume', href: '/tarek_ferdous_resume.pdf', icon: <ResumeIcon />, target: '_blank', rel: 'noopener noreferrer' },
     { label: 'Contact', href: isHome ? '#contact' : '/#contact', icon: <ContactIcon /> },
   ];
