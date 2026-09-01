@@ -65,6 +65,9 @@ yarn-error.log*
 # OpenNext
 .open-next
 
+# Supabase CLI local cache
+supabase/.temp/
+
 # wrangler files
 .wrangler
 .dev.vars*

@@ -1,7 +1,9 @@
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { fetchPublishedBlogBySlug } from '@/lib/actions/blogs';
+import { fetchCommentsForBlog } from '@/lib/actions/comments';
 import { colorForId } from '@/lib/colors';
+import { CommentsSection } from '@/components/comments/CommentsSection';
 import type { BlogBlock } from '@/lib/supabase/types';
 
 function formatPublishDate(publishDate: string | null): string | null {
@@ -38,6 +40,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   const result = await fetchPublishedBlogBySlug(slug);
   if (!result) notFound();
   const { blog, blocks } = result;
+  const comments = await fetchCommentsForBlog(blog.id);
 
   const formattedDate = formatPublishDate(blog.publish_date);
   const dateline = [blog.author, formattedDate, blog.location].filter(Boolean).join(' · ');
@@ -77,6 +80,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             <PostBlock key={block.id} block={block} />
           ))}
         </div>
+
+        <CommentsSection blogId={blog.id} initialComments={comments} />
       </section>
     </main>
   );

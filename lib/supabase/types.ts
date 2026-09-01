@@ -55,6 +55,18 @@ export type BlogBlock = {
   display_order: number;
 };
 
+export type Comment = {
+  id: string;
+  blog_id: string;
+  parent_comment_id: string | null;
+  author_id: string;
+  author_email: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 export type Contacts = {
   id: string;
   email: string | null;
