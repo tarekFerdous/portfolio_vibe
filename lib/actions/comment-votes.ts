@@ -47,7 +47,7 @@ export async function retractVote(commentId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export async function fetchVotesForBlog(commentIds: string[]): Promise<CommentVote[]> {
+export async function fetchVotesForPost(commentIds: string[]): Promise<CommentVote[]> {
   if (commentIds.length === 0) return [];
 
   const supabase = await createClient();

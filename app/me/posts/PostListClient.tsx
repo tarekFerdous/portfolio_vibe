@@ -2,16 +2,16 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { deleteBlog, upsertBlog } from '@/lib/actions/blogs';
-import type { Blog } from '@/lib/supabase/types';
+import { deletePost, upsertPost } from '@/lib/actions/posts';
+import type { Post } from '@/lib/supabase/types';
 
 interface Props {
-  initialBlogs: Blog[];
+  initialPosts: Post[];
   fetchError?: string | null;
 }
 
-export function BlogListClient({ initialBlogs, fetchError }: Props) {
-  const [blogs, setBlogs] = useState<Blog[]>(initialBlogs);
+export function PostListClient({ initialPosts, fetchError }: Props) {
+  const [posts, setPosts] = useState<Post[]>(initialPosts);
   const [creating, setCreating] = useState(false);
   const [newPostError, setNewPostError] = useState<string | null>(null);
   const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
@@ -20,14 +20,14 @@ export function BlogListClient({ initialBlogs, fetchError }: Props) {
     setCreating(true);
     setNewPostError(null);
     try {
-      const id = await upsertBlog({
+      const id = await upsertPost({
         title: 'Untitled Post',
         publish_date: null,
         location: null,
         status: 'draft',
         blocks: [],
       });
-      window.location.href = `/me/blog/${id}`;
+      window.location.href = `/me/posts/${id}`;
     } catch (err) {
       setNewPostError(err instanceof Error ? err.message : 'Failed to create post.');
       setCreating(false);
@@ -41,12 +41,12 @@ export function BlogListClient({ initialBlogs, fetchError }: Props) {
       delete next[id];
       return next;
     });
-    const previousBlogs = blogs;
-    setBlogs((prev) => prev.filter((b) => b.id !== id));
+    const previousPosts = posts;
+    setPosts((prev) => prev.filter((p) => p.id !== id));
     try {
-      await deleteBlog(id);
+      await deletePost(id);
     } catch (err) {
-      setBlogs(previousBlogs);
+      setPosts(previousPosts);
       setDeleteErrors((prev) => ({
         ...prev,
         [id]: err instanceof Error ? err.message : 'Failed to delete post.',
@@ -90,12 +90,12 @@ export function BlogListClient({ initialBlogs, fetchError }: Props) {
       </div>
 
       <div className="flex flex-col gap-3">
-        {blogs.length === 0 && (
+        {posts.length === 0 && (
           <p className="text-gray-500 dark:text-gray-400 text-sm py-8 text-center">No posts yet.</p>
         )}
-        {blogs.map((blog) => (
+        {posts.map((post) => (
           <div
-            key={blog.id}
+            key={post.id}
             className="flex items-center gap-4 rounded-[20px] p-5"
             style={{
               backdropFilter: 'var(--intro-glass-filter)',
@@ -106,37 +106,37 @@ export function BlogListClient({ initialBlogs, fetchError }: Props) {
           >
             <div className="flex-1 min-w-0">
               <p className="font-medium text-gray-900 dark:text-gray-50 truncate" style={{ fontFamily: 'var(--font-recursive)' }}>
-                {blog.title}
+                {post.title}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {blog.publish_date ?? 'No date'} · {blog.location ?? 'No location'}
+                {post.publish_date ?? 'No date'} · {post.location ?? 'No location'}
               </p>
             </div>
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                blog.status === 'published'
+                post.status === 'published'
                   ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
               }`}
             >
-              {blog.status}
+              {post.status}
             </span>
             <Link
-              href={`/me/blog/${blog.id}`}
+              href={`/me/posts/${post.id}`}
               className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
             >
               Edit
             </Link>
             <div className="flex flex-col items-end gap-1">
               <button
-                onClick={() => handleDelete(blog.id, blog.title)}
+                onClick={() => handleDelete(post.id, post.title)}
                 className="text-sm text-red-400 hover:text-red-600 transition-colors"
               >
                 Delete
               </button>
-              {deleteErrors[blog.id] && (
+              {deleteErrors[post.id] && (
                 <p role="alert" className="text-xs text-red-600 dark:text-red-400">
-                  {deleteErrors[blog.id]}
+                  {deleteErrors[post.id]}
                 </p>
               )}
             </div>

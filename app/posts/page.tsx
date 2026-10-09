@@ -1,8 +1,8 @@
 import { PostsSection } from '@/components/home/PostsSection';
-import { fetchPublishedBlogs } from '@/lib/actions/blogs';
+import { fetchPublishedPosts } from '@/lib/actions/posts';
 
 export default async function PostsPage() {
-  const posts = await fetchPublishedBlogs();
+  const posts = await fetchPublishedPosts();
 
   return (
     <main className="pt-16 pb-24">

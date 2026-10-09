@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { PostsSection } from './PostsSection';
-import type { Blog } from '@/lib/supabase/types';
+import type { Post } from '@/lib/supabase/types';
 
-function makePost(index: number): Blog {
+function makePost(index: number): Post {
   return {
     id: `post-${index}`,
     title: `Post ${index}`,

@@ -3,36 +3,36 @@
 import { createClient } from '@/lib/supabase/server';
 import { deleteImage, uploadImage } from './images';
 import { generateSlug } from '@/lib/utils/slug';
-import type { Blog, BlogBlock, BlogStatus } from '@/lib/supabase/types';
+import type { Post, PostBlock, PostStatus } from '@/lib/supabase/types';
 
-export async function fetchBlogs(): Promise<Blog[]> {
+export async function fetchPosts(): Promise<Post[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from('blogs').select('*').order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
 }
 
-export async function fetchBlogWithBlocks(id: string): Promise<{ blog: Blog; blocks: BlogBlock[] } | null> {
+export async function fetchPostWithBlocks(id: string): Promise<{ post: Post; blocks: PostBlock[] } | null> {
   const supabase = await createClient();
-  const { data: blog, error: blogError } = await supabase.from('blogs').select('*').eq('id', id).single();
-  // PGRST116 = "no rows returned", which means the blog genuinely doesn't exist (not a query failure).
-  if (blogError && blogError.code !== 'PGRST116') throw new Error(blogError.message);
-  if (!blog) return null;
+  const { data: post, error: postError } = await supabase.from('posts').select('*').eq('id', id).single();
+  // PGRST116 = "no rows returned", which means the post genuinely doesn't exist (not a query failure).
+  if (postError && postError.code !== 'PGRST116') throw new Error(postError.message);
+  if (!post) return null;
   const { data: blocks, error: blocksError } = await supabase
-    .from('blog_blocks')
+    .from('post_blocks')
     .select('*')
-    .eq('blog_id', id)
+    .eq('post_id', id)
     .order('display_order', { ascending: true });
   if (blocksError) throw new Error(blocksError.message);
-  return { blog, blocks: blocks ?? [] };
+  return { post, blocks: blocks ?? [] };
 }
 
-export async function upsertBlog(values: {
+export async function upsertPost(values: {
   id?: string;
   title: string;
   publish_date: string | null;
   location: string | null;
-  status: BlogStatus;
+  status: PostStatus;
   excerpt?: string | null;
   cover_image_url?: string | null;
   author?: string;
@@ -41,9 +41,9 @@ export async function upsertBlog(values: {
   const supabase = await createClient();
   const now = new Date().toISOString();
 
-  let blogId = values.id;
-  if (blogId) {
-    const { error } = await supabase.from('blogs').update({
+  let postId = values.id;
+  if (postId) {
+    const { error } = await supabase.from('posts').update({
       title: values.title,
       publish_date: values.publish_date,
       location: values.location,
@@ -52,11 +52,11 @@ export async function upsertBlog(values: {
       cover_image_url: values.cover_image_url,
       author: values.author,
       updated_at: now,
-    }).eq('id', blogId);
+    }).eq('id', postId);
     if (error) throw new Error(error.message);
   } else {
     const slug = generateSlug(values.title);
-    const { data, error } = await supabase.from('blogs').insert({
+    const { data, error } = await supabase.from('posts').insert({
       title: values.title,
       slug,
       publish_date: values.publish_date,
@@ -67,16 +67,16 @@ export async function upsertBlog(values: {
       author: values.author,
     }).select('id').single();
     if (error) throw new Error(error.message);
-    blogId = data.id;
+    postId = data.id;
   }
 
   // Replace all blocks
-  const { error: deleteBlocksError } = await supabase.from('blog_blocks').delete().eq('blog_id', blogId);
+  const { error: deleteBlocksError } = await supabase.from('post_blocks').delete().eq('post_id', postId);
   if (deleteBlocksError) throw new Error(deleteBlocksError.message);
   if (values.blocks.length > 0) {
-    const { error: insertBlocksError } = await supabase.from('blog_blocks').insert(
+    const { error: insertBlocksError } = await supabase.from('post_blocks').insert(
       values.blocks.map((b, i) => ({
-        blog_id: blogId,
+        post_id: postId,
         block_type: b.block_type,
         content: b.content,
         image_url: b.image_url,
@@ -86,26 +86,26 @@ export async function upsertBlog(values: {
     if (insertBlocksError) throw new Error(insertBlocksError.message);
   }
 
-  return blogId!;
+  return postId!;
 }
 
-export async function deleteBlog(id: string): Promise<void> {
+export async function deletePost(id: string): Promise<void> {
   const supabase = await createClient();
-  const { data: blocks, error: fetchBlocksError } = await supabase.from('blog_blocks').select('image_url').eq('blog_id', id);
+  const { data: blocks, error: fetchBlocksError } = await supabase.from('post_blocks').select('image_url').eq('post_id', id);
   if (fetchBlocksError) throw new Error(fetchBlocksError.message);
   if (blocks) {
     await Promise.all(
-      blocks.filter((b) => b.image_url).map((b) => deleteImage('blog-photos', b.image_url!))
+      blocks.filter((b) => b.image_url).map((b) => deleteImage('post-photos', b.image_url!))
     );
   }
-  const { error: deleteBlogError } = await supabase.from('blogs').delete().eq('id', id);
-  if (deleteBlogError) throw new Error(deleteBlogError.message);
+  const { error: deletePostError } = await supabase.from('posts').delete().eq('id', id);
+  if (deletePostError) throw new Error(deletePostError.message);
 }
 
-export async function fetchPublishedBlogs(): Promise<Blog[]> {
+export async function fetchPublishedPosts(): Promise<Post[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from('blogs')
+    .from('posts')
     .select('*')
     .eq('status', 'published')
     .order('publish_date', { ascending: false });
@@ -113,30 +113,30 @@ export async function fetchPublishedBlogs(): Promise<Blog[]> {
   return data ?? [];
 }
 
-export async function fetchPublishedBlogBySlug(slug: string): Promise<{ blog: Blog; blocks: BlogBlock[] } | null> {
+export async function fetchPublishedPostBySlug(slug: string): Promise<{ post: Post; blocks: PostBlock[] } | null> {
   const supabase = await createClient();
-  const { data: blog, error: blogError } = await supabase
-    .from('blogs')
+  const { data: post, error: postError } = await supabase
+    .from('posts')
     .select('*')
     .eq('slug', slug)
     .eq('status', 'published')
     .single();
-  // PGRST116 = "no rows returned", which means the blog genuinely doesn't exist (not a query failure).
-  if (blogError && blogError.code !== 'PGRST116') throw new Error(blogError.message);
-  if (!blog) return null;
+  // PGRST116 = "no rows returned", which means the post genuinely doesn't exist (not a query failure).
+  if (postError && postError.code !== 'PGRST116') throw new Error(postError.message);
+  if (!post) return null;
   const { data: blocks, error: blocksError } = await supabase
-    .from('blog_blocks')
+    .from('post_blocks')
     .select('*')
-    .eq('blog_id', blog.id)
+    .eq('post_id', post.id)
     .order('display_order', { ascending: true });
   if (blocksError) throw new Error(blocksError.message);
-  return { blog, blocks: blocks ?? [] };
+  return { post, blocks: blocks ?? [] };
 }
 
-export async function uploadBlogCover(file: File): Promise<string> {
-  return uploadImage('blog-photos', file);
+export async function uploadPostCover(file: File): Promise<string> {
+  return uploadImage('post-photos', file);
 }
 
-export async function deleteBlogCover(url: string): Promise<void> {
-  return deleteImage('blog-photos', url);
+export async function deletePostCover(url: string): Promise<void> {
+  return deleteImage('post-photos', url);
 }

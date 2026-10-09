@@ -26,7 +26,7 @@ const mockRetractVote = vi.mocked(retractVote);
 function makeNode(overrides: Partial<CommentNode> = {}): CommentNode {
   return {
     id: 'comment-1',
-    blog_id: 'blog-1',
+    post_id: 'post-1',
     parent_comment_id: null,
     author_id: 'user-1',
     author_email: 'visitor@example.com',
@@ -49,7 +49,7 @@ function renderCommentItem(overrides: Partial<React.ComponentProps<typeof Commen
   const props = {
     node: makeNode(),
     depth: 0,
-    blogId: 'blog-1',
+    postId: 'post-1',
     sessionState: 'signed-in' as const,
     currentUserId: 'user-1',
     votes: [] as CommentVote[],
@@ -91,7 +91,7 @@ describe('CommentItem edit', () => {
   it('submits an edit and updates the displayed content without a remount', async () => {
     const updated: Comment = {
       id: 'comment-1',
-      blog_id: 'blog-1',
+      post_id: 'post-1',
       parent_comment_id: null,
       author_id: 'user-1',
       author_email: 'visitor@example.com',
@@ -154,7 +154,7 @@ describe('CommentItem edit', () => {
   it('does not affect the Reply button/flow', async () => {
     const newComment: Comment = {
       id: 'comment-2',
-      blog_id: 'blog-1',
+      post_id: 'post-1',
       parent_comment_id: 'comment-1',
       author_id: 'user-1',
       author_email: 'visitor@example.com',
@@ -172,7 +172,7 @@ describe('CommentItem edit', () => {
     fireEvent.click(screen.getByRole('button', { name: /post comment/i }));
 
     await waitFor(() =>
-      expect(mockPostComment).toHaveBeenCalledWith({ blogId: 'blog-1', content: 'A reply', parentCommentId: 'comment-1' })
+      expect(mockPostComment).toHaveBeenCalledWith({ postId: 'post-1', content: 'A reply', parentCommentId: 'comment-1' })
     );
     expect(onCommentPosted).toHaveBeenCalledWith(newComment);
   });
@@ -187,7 +187,7 @@ describe('CommentItem delete', () => {
   it('shows a Delete button and calls softDeleteComment when clicked for the owning identity', async () => {
     const deleted: Comment = {
       id: 'comment-1',
-      blog_id: 'blog-1',
+      post_id: 'post-1',
       parent_comment_id: null,
       author_id: 'user-1',
       author_email: 'visitor@example.com',

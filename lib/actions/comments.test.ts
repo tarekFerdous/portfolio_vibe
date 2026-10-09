@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  fetchCommentsForBlog,
+  fetchCommentsForPost,
   fetchAllCommentsForModeration,
   postComment,
   updateComment,
@@ -41,26 +41,26 @@ beforeEach(() => {
   mockGetUser.mockReset();
 });
 
-describe('fetchCommentsForBlog', () => {
-  it('returns all comments (all depths) for the given blog on success', async () => {
-    const builder = makeBuilder({ data: [{ id: 'c1', blog_id: 'blog-1' }], error: null });
+describe('fetchCommentsForPost', () => {
+  it('returns all comments (all depths) for the given post on success', async () => {
+    const builder = makeBuilder({ data: [{ id: 'c1', post_id: 'post-1' }], error: null });
     mockSupabase.from.mockReturnValueOnce(builder);
-    const result = await fetchCommentsForBlog('blog-1');
-    expect(result).toEqual([{ id: 'c1', blog_id: 'blog-1' }]);
-    expect(builder.eq).toHaveBeenCalledWith('blog_id', 'blog-1');
+    const result = await fetchCommentsForPost('post-1');
+    expect(result).toEqual([{ id: 'c1', post_id: 'post-1' }]);
+    expect(builder.eq).toHaveBeenCalledWith('post_id', 'post-1');
     expect(builder.is).not.toHaveBeenCalled();
   });
 
   it('throws when the query returns an error', async () => {
     mockSupabase.from.mockReturnValueOnce(makeBuilder({ data: null, error: { message: 'boom' } }));
-    await expect(fetchCommentsForBlog('blog-1')).rejects.toThrow('boom');
+    await expect(fetchCommentsForPost('post-1')).rejects.toThrow('boom');
   });
 });
 
 describe('fetchAllCommentsForModeration', () => {
   it('returns all comments across all posts, newest-first, joined to their post', async () => {
     const builder = makeBuilder({
-      data: [{ id: 'c1', blog_id: 'blog-1', blogs: { title: 'Post One', slug: 'post-one' } }],
+      data: [{ id: 'c1', post_id: 'post-1', posts: { title: 'Post One', slug: 'post-one' } }],
       error: null,
     });
     mockSupabase.from.mockReturnValueOnce(builder);
@@ -68,9 +68,9 @@ describe('fetchAllCommentsForModeration', () => {
     const result = await fetchAllCommentsForModeration();
 
     expect(mockSupabase.from).toHaveBeenCalledWith('comments');
-    expect(builder.select).toHaveBeenCalledWith('*, blogs(title, slug)');
+    expect(builder.select).toHaveBeenCalledWith('*, posts(title, slug)');
     expect(builder.order).toHaveBeenCalledWith('created_at', { ascending: false });
-    expect(result).toEqual([{ id: 'c1', blog_id: 'blog-1', blogs: { title: 'Post One', slug: 'post-one' } }]);
+    expect(result).toEqual([{ id: 'c1', post_id: 'post-1', posts: { title: 'Post One', slug: 'post-one' } }]);
   });
 
   it('throws when the query returns an error', async () => {
@@ -85,10 +85,10 @@ describe('postComment', () => {
     const builder = makeBuilder({ data: { id: 'c1', content: 'hello' }, error: null });
     mockSupabase.from.mockReturnValueOnce(builder);
 
-    const result = await postComment({ blogId: 'blog-1', content: 'hello' });
+    const result = await postComment({ postId: 'post-1', content: 'hello' });
 
     expect(builder.insert).toHaveBeenCalledWith({
-      blog_id: 'blog-1',
+      post_id: 'post-1',
       parent_comment_id: null,
       author_id: 'user-1',
       author_email: 'visitor@example.com',
@@ -102,10 +102,10 @@ describe('postComment', () => {
     const builder = makeBuilder({ data: { id: 'c2', content: 'a reply' }, error: null });
     mockSupabase.from.mockReturnValueOnce(builder);
 
-    const result = await postComment({ blogId: 'blog-1', content: 'a reply', parentCommentId: 'c1' });
+    const result = await postComment({ postId: 'post-1', content: 'a reply', parentCommentId: 'c1' });
 
     expect(builder.insert).toHaveBeenCalledWith({
-      blog_id: 'blog-1',
+      post_id: 'post-1',
       parent_comment_id: 'c1',
       author_id: 'user-1',
       author_email: 'visitor@example.com',
@@ -116,7 +116,7 @@ describe('postComment', () => {
 
   it('rejects when there is no authenticated user', async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
-    await expect(postComment({ blogId: 'blog-1', content: 'hello' })).rejects.toThrow(
+    await expect(postComment({ postId: 'post-1', content: 'hello' })).rejects.toThrow(
       'You must be signed in to comment.'
     );
     expect(mockSupabase.from).not.toHaveBeenCalled();
@@ -127,7 +127,7 @@ describe('postComment', () => {
     mockSupabase.from.mockReturnValueOnce(
       makeBuilder({ data: null, error: { message: 'new row violates row-level security policy' } })
     );
-    await expect(postComment({ blogId: 'blog-1', content: 'hello' })).rejects.toThrow(
+    await expect(postComment({ postId: 'post-1', content: 'hello' })).rejects.toThrow(
       'new row violates row-level security policy'
     );
   });

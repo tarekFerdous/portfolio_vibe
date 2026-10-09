@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CommentsModerationClient } from './CommentsModerationClient';
 import { moderateRemoveComment } from '@/lib/actions/comments';
-import type { CommentWithBlog } from '@/lib/supabase/types';
+import type { CommentWithPost } from '@/lib/supabase/types';
 
 vi.mock('@/lib/actions/comments', () => ({
   moderateRemoveComment: vi.fn(),
@@ -10,10 +10,10 @@ vi.mock('@/lib/actions/comments', () => ({
 
 const mockModerateRemoveComment = vi.mocked(moderateRemoveComment);
 
-function makeComment(overrides: Partial<CommentWithBlog> = {}): CommentWithBlog {
+function makeComment(overrides: Partial<CommentWithPost> = {}): CommentWithPost {
   return {
     id: 'c1',
-    blog_id: 'blog-1',
+    post_id: 'post-1',
     parent_comment_id: null,
     author_id: 'user-1',
     author_email: 'visitor@example.com',
@@ -22,7 +22,7 @@ function makeComment(overrides: Partial<CommentWithBlog> = {}): CommentWithBlog 
     updated_at: '2026-01-01T00:00:00.000Z',
     deleted_at: null,
     removed_by_moderator: false,
-    blogs: { title: 'Test Post', slug: 'test-post' },
+    posts: { title: 'Test Post', slug: 'test-post' },
     ...overrides,
   };
 }
@@ -74,8 +74,8 @@ describe('CommentsModerationClient - filter', () => {
     render(
       <CommentsModerationClient
         initialComments={[
-          makeComment({ id: 'c1', content: 'from post one', blogs: { title: 'Post One', slug: 'post-one' } }),
-          makeComment({ id: 'c2', content: 'from post two', blogs: { title: 'Post Two', slug: 'post-two' } }),
+          makeComment({ id: 'c1', content: 'from post one', posts: { title: 'Post One', slug: 'post-one' } }),
+          makeComment({ id: 'c2', content: 'from post two', posts: { title: 'Post Two', slug: 'post-two' } }),
         ]}
       />
     );

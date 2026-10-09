@@ -5,15 +5,15 @@ import Link from 'next/link';
 import { moderateRemoveComment } from '@/lib/actions/comments';
 import { deriveUsernameFromEmail } from '@/lib/utils/username';
 import { formatRelativeTime } from '@/lib/utils/relativeTime';
-import type { CommentWithBlog } from '@/lib/supabase/types';
+import type { CommentWithPost } from '@/lib/supabase/types';
 
 interface Props {
-  initialComments: CommentWithBlog[];
+  initialComments: CommentWithPost[];
   fetchError?: string | null;
 }
 
 export function CommentsModerationClient({ initialComments, fetchError }: Props) {
-  const [comments, setComments] = useState<CommentWithBlog[]>(initialComments);
+  const [comments, setComments] = useState<CommentWithPost[]>(initialComments);
   const [filter, setFilter] = useState('');
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removeErrors, setRemoveErrors] = useState<Record<string, string>>({});
@@ -60,7 +60,7 @@ export function CommentsModerationClient({ initialComments, fetchError }: Props)
   const filteredComments = normalizedFilter
     ? comments.filter(
         (c) =>
-          (c.blogs?.title ?? '').toLowerCase().includes(normalizedFilter) ||
+          (c.posts?.title ?? '').toLowerCase().includes(normalizedFilter) ||
           c.author_email.toLowerCase().includes(normalizedFilter)
       )
     : comments;
@@ -120,12 +120,12 @@ export function CommentsModerationClient({ initialComments, fetchError }: Props)
                   )}
                 </div>
               </div>
-              {comment.blogs && (
+              {comment.posts && (
                 <Link
-                  href={`/posts/${comment.blogs.slug}`}
+                  href={`/posts/${comment.posts.slug}`}
                   className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors underline w-fit"
                 >
-                  {comment.blogs.title}
+                  {comment.posts.title}
                 </Link>
               )}
               <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">

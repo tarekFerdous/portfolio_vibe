@@ -11,14 +11,14 @@ import type { SortMode } from '@/lib/utils/commentTree';
 import type { Comment, CommentVote } from '@/lib/supabase/types';
 
 interface CommentsSectionProps {
-  blogId: string;
+  postId: string;
   initialComments: Comment[];
   initialVotes: CommentVote[];
 }
 
 export type SessionState = 'loading' | 'signed-out' | 'signed-in';
 
-export function CommentsSection({ blogId, initialComments, initialVotes }: CommentsSectionProps) {
+export function CommentsSection({ postId, initialComments, initialVotes }: CommentsSectionProps) {
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [votes, setVotes] = useState<CommentVote[]>(initialVotes);
   const [sortMode, setSortMode] = useState<SortMode>('top');
@@ -61,7 +61,7 @@ export function CommentsSection({ blogId, initialComments, initialVotes }: Comme
     setSubmitting(true);
     setError('');
     try {
-      const comment = await postComment({ blogId, content: trimmed });
+      const comment = await postComment({ postId, content: trimmed });
       handleCommentPosted(comment);
       setContent('');
     } catch (err) {
@@ -180,7 +180,7 @@ export function CommentsSection({ blogId, initialComments, initialVotes }: Comme
             key={node.id}
             node={node}
             depth={0}
-            blogId={blogId}
+            postId={postId}
             sessionState={sessionState}
             currentUserId={currentUserId}
             votes={votes}

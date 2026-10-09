@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BlogEditorClient } from './BlogEditorClient';
-import { upsertBlog } from '@/lib/actions/blogs';
-import type { Blog, BlogBlock } from '@/lib/supabase/types';
+import { PostEditorClient } from './PostEditorClient';
+import { upsertPost } from '@/lib/actions/posts';
+import type { Post, PostBlock } from '@/lib/supabase/types';
 
-vi.mock('@/lib/actions/blogs', () => ({
-  upsertBlog: vi.fn(),
-  uploadBlogCover: vi.fn().mockResolvedValue('https://example.com/cover.jpg'),
-  deleteBlogCover: vi.fn().mockResolvedValue(undefined),
+vi.mock('@/lib/actions/posts', () => ({
+  upsertPost: vi.fn(),
+  uploadPostCover: vi.fn().mockResolvedValue('https://example.com/cover.jpg'),
+  deletePostCover: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/actions/images', () => ({
@@ -15,9 +15,9 @@ vi.mock('@/lib/actions/images', () => ({
   deleteImage: vi.fn().mockResolvedValue(undefined),
 }));
 
-function makeBlog(overrides: Partial<Blog> = {}): Blog {
+function makePost(overrides: Partial<Post> = {}): Post {
   return {
-    id: 'blog-1',
+    id: 'post-1',
     title: 'Test Post',
     slug: 'test-post',
     publish_date: null,
@@ -32,24 +32,24 @@ function makeBlog(overrides: Partial<Blog> = {}): Blog {
   };
 }
 
-const initialBlocks: BlogBlock[] = [];
+const initialBlocks: PostBlock[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('BlogEditorClient - initial fetch error', () => {
+describe('PostEditorClient - initial fetch error', () => {
   it('shows a visible error instead of the editor form when the initial fetch failed', () => {
-    render(<BlogEditorClient blog={null} initialBlocks={[]} fetchError="Not found" />);
+    render(<PostEditorClient post={null} initialBlocks={[]} fetchError="Not found" />);
     expect(screen.getByRole('alert')).toHaveTextContent('Not found');
     expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
   });
 });
 
-describe('BlogEditorClient - save', () => {
+describe('PostEditorClient - save', () => {
   it('shows the success confirmation and no error when save succeeds', async () => {
-    (upsertBlog as ReturnType<typeof vi.fn>).mockResolvedValueOnce('blog-1');
-    render(<BlogEditorClient blog={makeBlog()} initialBlocks={initialBlocks} />);
+    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce('post-1');
+    render(<PostEditorClient post={makePost()} initialBlocks={initialBlocks} />);
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
@@ -58,8 +58,8 @@ describe('BlogEditorClient - save', () => {
   });
 
   it('shows a visible error and no success confirmation when save fails', async () => {
-    (upsertBlog as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Save failed'));
-    render(<BlogEditorClient blog={makeBlog()} initialBlocks={initialBlocks} />);
+    (upsertPost as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Save failed'));
+    render(<PostEditorClient post={makePost()} initialBlocks={initialBlocks} />);
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
@@ -68,16 +68,16 @@ describe('BlogEditorClient - save', () => {
   });
 });
 
-describe('BlogEditorClient - excerpt, author, and cover image', () => {
+describe('PostEditorClient - excerpt, author, and cover image', () => {
   it('defaults the author field to Tarek Ferdous for a new post', () => {
-    render(<BlogEditorClient blog={makeBlog({ author: 'Tarek Ferdous' })} initialBlocks={initialBlocks} />);
+    render(<PostEditorClient post={makePost({ author: 'Tarek Ferdous' })} initialBlocks={initialBlocks} />);
     const authorInput = screen.getByText('Author').nextElementSibling as HTMLInputElement;
     expect(authorInput.value).toBe('Tarek Ferdous');
   });
 
   it('persists entered excerpt and author text on save', async () => {
-    (upsertBlog as ReturnType<typeof vi.fn>).mockResolvedValueOnce('blog-1');
-    render(<BlogEditorClient blog={makeBlog()} initialBlocks={initialBlocks} />);
+    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce('post-1');
+    render(<PostEditorClient post={makePost()} initialBlocks={initialBlocks} />);
 
     const excerptInput = screen.getByText('Excerpt').nextElementSibling as HTMLTextAreaElement;
     fireEvent.change(excerptInput, { target: { value: 'A short excerpt' } });
@@ -88,14 +88,14 @@ describe('BlogEditorClient - excerpt, author, and cover image', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => expect(screen.getByText('Saved!')).toBeInTheDocument());
-    expect(upsertBlog).toHaveBeenCalledWith(
+    expect(upsertPost).toHaveBeenCalledWith(
       expect.objectContaining({ excerpt: 'A short excerpt', author: 'Jane Doe' })
     );
   });
 
   it('uploads a cover image and persists its URL on save', async () => {
-    (upsertBlog as ReturnType<typeof vi.fn>).mockResolvedValueOnce('blog-1');
-    render(<BlogEditorClient blog={makeBlog()} initialBlocks={initialBlocks} />);
+    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce('post-1');
+    render(<PostEditorClient post={makePost()} initialBlocks={initialBlocks} />);
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const file = new File(['cover'], 'cover.jpg', { type: 'image/jpeg' });
@@ -106,7 +106,7 @@ describe('BlogEditorClient - excerpt, author, and cover image', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => expect(screen.getByText('Saved!')).toBeInTheDocument());
-    expect(upsertBlog).toHaveBeenCalledWith(
+    expect(upsertPost).toHaveBeenCalledWith(
       expect.objectContaining({ cover_image_url: 'https://example.com/cover.jpg' })
     );
   });

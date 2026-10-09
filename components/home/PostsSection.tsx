@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { PostCard } from './PostCard';
-import type { Blog } from '@/lib/supabase/types';
+import type { Post } from '@/lib/supabase/types';
 
 interface PostsSectionProps {
-  posts: Blog[];
+  posts: Post[];
   totalPublished: number;
 }
 

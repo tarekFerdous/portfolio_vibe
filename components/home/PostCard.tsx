@@ -1,10 +1,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { colorForId } from '@/lib/colors';
-import type { Blog } from '@/lib/supabase/types';
+import type { Post } from '@/lib/supabase/types';
 
 interface PostCardProps {
-  post: Blog;
+  post: Post;
 }
 
 function formatPublishDate(publishDate: string | null): string | null {

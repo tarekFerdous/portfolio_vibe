@@ -49,7 +49,7 @@ function makeVote(overrides: Partial<CommentVote> = {}): CommentVote {
 function makeComment(overrides: Partial<Comment> = {}): Comment {
   return {
     id: 'comment-1',
-    blog_id: 'blog-1',
+    post_id: 'post-1',
     parent_comment_id: null,
     author_id: 'user-1',
     author_email: 'visitor@example.com',
@@ -73,7 +73,7 @@ beforeEach(() => {
 describe('CommentsSection', () => {
   it('shows the inline sign-in prompt when there is no session', async () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
-    render(<CommentsSection blogId="blog-1" initialComments={[]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[]} initialVotes={[]} />);
 
     expect(await screen.findByText(/sign in to comment/i)).toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/add a comment/i)).not.toBeInTheDocument();
@@ -81,7 +81,7 @@ describe('CommentsSection', () => {
 
   it('shows the composer when the viewer has a session', async () => {
     mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'user-1', email: 'visitor@example.com' } } } });
-    render(<CommentsSection blogId="blog-1" initialComments={[]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[]} initialVotes={[]} />);
 
     expect(await screen.findByPlaceholderText(/add a comment/i)).toBeInTheDocument();
     expect(screen.queryByText(/sign in to comment/i)).not.toBeInTheDocument();
@@ -90,7 +90,7 @@ describe('CommentsSection', () => {
   it('renders initial comments scoped to the post, with derived author name and content', async () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
     const comment = makeComment({ author_email: 'jane.doe@example.com', content: 'Great post!' });
-    render(<CommentsSection blogId="blog-1" initialComments={[comment]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[comment]} initialVotes={[]} />);
 
     expect(await screen.findByText('jane.doe')).toBeInTheDocument();
     expect(screen.getByText('Great post!')).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe('CommentsSection', () => {
 
   it('rejects an empty submission with an inline error and does not call postComment', async () => {
     mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'user-1', email: 'visitor@example.com' } } } });
-    render(<CommentsSection blogId="blog-1" initialComments={[]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[]} initialVotes={[]} />);
 
     const button = await screen.findByRole('button', { name: /post comment/i });
     fireEvent.click(button);
@@ -112,13 +112,13 @@ describe('CommentsSection', () => {
     const newComment = makeComment({ id: 'comment-2', content: 'Nice read' });
     mockPostComment.mockResolvedValue(newComment);
 
-    render(<CommentsSection blogId="blog-1" initialComments={[]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[]} initialVotes={[]} />);
 
     const textarea = await screen.findByPlaceholderText(/add a comment/i);
     fireEvent.change(textarea, { target: { value: 'Nice read' } });
     fireEvent.click(screen.getByRole('button', { name: /post comment/i }));
 
-    await waitFor(() => expect(mockPostComment).toHaveBeenCalledWith({ blogId: 'blog-1', content: 'Nice read' }));
+    await waitFor(() => expect(mockPostComment).toHaveBeenCalledWith({ postId: 'post-1', content: 'Nice read' }));
     expect(await screen.findByText('Nice read')).toBeInTheDocument();
     expect(mockPostComment).toHaveBeenCalledTimes(1);
   });
@@ -127,7 +127,7 @@ describe('CommentsSection', () => {
     mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'user-1', email: 'visitor@example.com' } } } });
     mockPostComment.mockRejectedValue(new Error('insert denied'));
 
-    render(<CommentsSection blogId="blog-1" initialComments={[]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[]} initialVotes={[]} />);
 
     const textarea = await screen.findByPlaceholderText(/add a comment/i);
     fireEvent.change(textarea, { target: { value: 'Nice read' } });
@@ -140,7 +140,7 @@ describe('CommentsSection', () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
     const parent = makeComment({ id: 'comment-1', content: 'Parent comment' });
     const reply = makeComment({ id: 'comment-2', parent_comment_id: 'comment-1', content: 'A reply' });
-    render(<CommentsSection blogId="blog-1" initialComments={[parent, reply]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[parent, reply]} initialVotes={[]} />);
 
     expect(await screen.findByText('Parent comment')).toBeInTheDocument();
     expect(screen.getByText('A reply')).toBeInTheDocument();
@@ -149,7 +149,7 @@ describe('CommentsSection', () => {
   it('shows the inline sign-in prompt when replying while signed out', async () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
     const parent = makeComment({ id: 'comment-1', content: 'Parent comment' });
-    render(<CommentsSection blogId="blog-1" initialComments={[parent]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[parent]} initialVotes={[]} />);
 
     await screen.findByText('Parent comment');
     fireEvent.click(screen.getByRole('button', { name: /reply/i }));
@@ -163,7 +163,7 @@ describe('CommentsSection', () => {
     const reply = makeComment({ id: 'comment-2', parent_comment_id: 'comment-1', content: 'Nested reply' });
     mockPostComment.mockResolvedValue(reply);
 
-    render(<CommentsSection blogId="blog-1" initialComments={[parent]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[parent]} initialVotes={[]} />);
 
     await screen.findByText('Parent comment');
     fireEvent.click(screen.getByRole('button', { name: /reply/i }));
@@ -175,7 +175,7 @@ describe('CommentsSection', () => {
     fireEvent.click(postButtons[postButtons.length - 1]);
 
     await waitFor(() =>
-      expect(mockPostComment).toHaveBeenCalledWith({ blogId: 'blog-1', content: 'Nested reply', parentCommentId: 'comment-1' })
+      expect(mockPostComment).toHaveBeenCalledWith({ postId: 'post-1', content: 'Nested reply', parentCommentId: 'comment-1' })
     );
     expect(await screen.findByText('Nested reply')).toBeInTheDocument();
   });
@@ -184,7 +184,7 @@ describe('CommentsSection', () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
     const comment = makeComment({ id: 'comment-1' });
     const votes = [makeVote({ voter_id: 'user-2', value: 1 }), makeVote({ id: 'vote-2', voter_id: 'user-3', value: 1 })];
-    render(<CommentsSection blogId="blog-1" initialComments={[comment]} initialVotes={votes} />);
+    render(<CommentsSection postId="post-1" initialComments={[comment]} initialVotes={votes} />);
 
     await screen.findByText('Hello world');
     expect(screen.getByLabelText('Net score')).toHaveTextContent('2');
@@ -193,7 +193,7 @@ describe('CommentsSection', () => {
   it('shows a net score of 0 for a comment with no votes', async () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
     const comment = makeComment({ id: 'comment-1' });
-    render(<CommentsSection blogId="blog-1" initialComments={[comment]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[comment]} initialVotes={[]} />);
 
     await screen.findByText('Hello world');
     expect(screen.getByLabelText('Net score')).toHaveTextContent('0');
@@ -202,7 +202,7 @@ describe('CommentsSection', () => {
   it('shows the sign-in prompt instead of calling castVote when a signed-out reader clicks a vote button', async () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
     const comment = makeComment({ id: 'comment-1' });
-    render(<CommentsSection blogId="blog-1" initialComments={[comment]} initialVotes={[]} />);
+    render(<CommentsSection postId="post-1" initialComments={[comment]} initialVotes={[]} />);
 
     await screen.findByText('Hello world');
     fireEvent.click(screen.getByRole('button', { name: /upvote/i }));
@@ -222,7 +222,7 @@ describe('CommentsSection', () => {
       makeVote({ id: 'v3', comment_id: 'c3', voter_id: 'u1', value: -1 }),
     ];
     const { container } = render(
-      <CommentsSection blogId="blog-1" initialComments={[low, high, negative]} initialVotes={votes} />
+      <CommentsSection postId="post-1" initialComments={[low, high, negative]} initialVotes={votes} />
     );
 
     await screen.findByText('high score comment');
@@ -244,7 +244,7 @@ describe('CommentsSection', () => {
     const middle = makeComment({ id: 'c3', content: 'middle comment', created_at: '2026-01-02T00:00:00.000Z' });
     const votes = [makeVote({ id: 'v1', comment_id: 'c1', voter_id: 'u1', value: 10 })];
     const { container } = render(
-      <CommentsSection blogId="blog-1" initialComments={[low, high, middle]} initialVotes={votes} />
+      <CommentsSection postId="post-1" initialComments={[low, high, middle]} initialVotes={votes} />
     );
 
     await screen.findByText('newest comment');

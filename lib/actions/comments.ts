@@ -1,35 +1,35 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import type { Comment, CommentWithBlog } from '@/lib/supabase/types';
+import type { Comment, CommentWithPost } from '@/lib/supabase/types';
 
-export async function fetchCommentsForBlog(blogId: string): Promise<Comment[]> {
+export async function fetchCommentsForPost(postId: string): Promise<Comment[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('comments')
     .select('*')
-    .eq('blog_id', blogId)
+    .eq('post_id', postId)
     .order('created_at', { ascending: true });
   if (error) throw new Error(error.message);
   return data ?? [];
 }
 
-export async function fetchAllCommentsForModeration(): Promise<CommentWithBlog[]> {
+export async function fetchAllCommentsForModeration(): Promise<CommentWithPost[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('comments')
-    .select('*, blogs(title, slug)')
+    .select('*, posts(title, slug)')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
 }
 
 export async function postComment({
-  blogId,
+  postId,
   content,
   parentCommentId,
 }: {
-  blogId: string;
+  postId: string;
   content: string;
   parentCommentId?: string | null;
 }): Promise<Comment> {
@@ -44,7 +44,7 @@ export async function postComment({
   const { data, error } = await supabase
     .from('comments')
     .insert({
-      blog_id: blogId,
+      post_id: postId,
       parent_comment_id: parentCommentId ?? null,
       author_id: user.id,
       author_email: user.email,

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { BlogBlockEditor, type Block } from './BlogBlockEditor';
+import { PostBlockEditor, type Block } from './PostBlockEditor';
 
 function makeBlock(type: 'text' | 'photo', id = crypto.randomUUID()): Block {
   return type === 'text'
@@ -11,7 +11,7 @@ function makeBlock(type: 'text' | 'photo', id = crypto.randomUUID()): Block {
 function setup(initialBlocks: Block[] = []) {
   const onChange = vi.fn();
   render(
-    <BlogBlockEditor
+    <PostBlockEditor
       blocks={initialBlocks}
       onChange={onChange}
       onImageUpload={vi.fn().mockResolvedValue('https://example.com/img.jpg')}
@@ -25,7 +25,7 @@ function getInsertButtonPairs() {
   return screen.getAllByTestId('insert-buttons');
 }
 
-describe('BlogBlockEditor', () => {
+describe('PostBlockEditor', () => {
   it('renders initial blocks in correct order', () => {
     const blocks = [makeBlock('text'), makeBlock('photo')];
     setup(blocks);

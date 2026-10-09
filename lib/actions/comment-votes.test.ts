@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { castVote, retractVote, fetchVotesForBlog } from './comment-votes';
+import { castVote, retractVote, fetchVotesForPost } from './comment-votes';
 
 type QueryResult = { data?: unknown; error?: { message: string; code?: string } | null };
 
@@ -110,9 +110,9 @@ describe('retractVote', () => {
   });
 });
 
-describe('fetchVotesForBlog', () => {
+describe('fetchVotesForPost', () => {
   it('returns an empty array without querying when given no comment ids', async () => {
-    const result = await fetchVotesForBlog([]);
+    const result = await fetchVotesForPost([]);
     expect(result).toEqual([]);
     expect(mockSupabase.from).not.toHaveBeenCalled();
   });
@@ -121,7 +121,7 @@ describe('fetchVotesForBlog', () => {
     const builder = makeBuilder({ data: [{ id: 'v1', comment_id: 'c1', voter_id: 'user-1', value: 1 }], error: null });
     mockSupabase.from.mockReturnValueOnce(builder);
 
-    const result = await fetchVotesForBlog(['c1', 'c2']);
+    const result = await fetchVotesForPost(['c1', 'c2']);
 
     expect(builder.in).toHaveBeenCalledWith('comment_id', ['c1', 'c2']);
     expect(result).toEqual([{ id: 'v1', comment_id: 'c1', voter_id: 'user-1', value: 1 }]);
@@ -129,6 +129,6 @@ describe('fetchVotesForBlog', () => {
 
   it('throws when the query returns an error', async () => {
     mockSupabase.from.mockReturnValueOnce(makeBuilder({ data: null, error: { message: 'boom' } }));
-    await expect(fetchVotesForBlog(['c1'])).rejects.toThrow('boom');
+    await expect(fetchVotesForPost(['c1'])).rejects.toThrow('boom');
   });
 });

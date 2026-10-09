@@ -8,7 +8,7 @@ export type Block =
   | { id: string; type: 'text'; content: string }
   | { id: string; type: 'photo'; image_url: string | null };
 
-interface BlogBlockEditorProps {
+interface PostBlockEditorProps {
   blocks: Block[];
   onChange: (blocks: Block[]) => void;
   onImageUpload: (file: File) => Promise<string>;
@@ -83,7 +83,7 @@ function InsertButtons({ onInsertText, onInsertPhoto }: InsertButtonsProps) {
   );
 }
 
-export function BlogBlockEditor({ blocks, onChange, onImageUpload, onImageDelete }: BlogBlockEditorProps) {
+export function PostBlockEditor({ blocks, onChange, onImageUpload, onImageDelete }: PostBlockEditorProps) {
   function insertAt(index: number, block: Block) {
     const next = [...blocks];
     next.splice(index, 0, block);

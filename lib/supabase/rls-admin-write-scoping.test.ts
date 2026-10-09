@@ -79,17 +79,17 @@ describe('findAdminWriteScopingViolations regression detection', () => {
   it('flags a table whose write policy is dropped and never recreated', () => {
     const dir = makeMigrationsDir({
       '001_initial_schema.sql': `
-        create policy "Auth write blogs" on blogs for all
+        create policy "Auth write posts" on posts for all
           using (auth.jwt() ->> 'email' = 'tarekferdous3@gmail.com');
       `,
       '002_drop_it.sql': `
-        drop policy if exists "Auth write blogs" on blogs;
+        drop policy if exists "Auth write posts" on posts;
       `,
     });
 
     const violations = findAdminWriteScopingViolations(dir);
 
-    expect(violations).toContain('blogs');
+    expect(violations).toContain('posts');
   });
 
   it('has no violations when every admin-scoped table is correctly owner-email scoped', () => {

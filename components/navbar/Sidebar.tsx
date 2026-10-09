@@ -21,7 +21,7 @@ function ProjectsIcon() {
   );
 }
 
-function BlogIcon() {
+function PostIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
       <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
@@ -75,7 +75,7 @@ export function Sidebar({ open, contacts }: { open: boolean; contacts?: Contacts
   const navItems: NavItem[] = [
     { label: 'About', href: '#about', icon: <AboutIcon /> },
     { label: 'Projects', href: '#projects', icon: <ProjectsIcon /> },
-    { label: 'Posts', href: '/posts', icon: <BlogIcon /> },
+    { label: 'Posts', href: '/posts', icon: <PostIcon /> },
     { label: 'Resume', href: '/tarek_ferdous_resume.pdf', icon: <ResumeIcon />, target: '_blank', rel: 'noopener noreferrer' },
     { label: 'Contact', href: isHome ? '#contact' : '/#contact', icon: <ContactIcon /> },
   ];

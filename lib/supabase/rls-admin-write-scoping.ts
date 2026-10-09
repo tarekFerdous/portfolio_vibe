@@ -12,8 +12,8 @@ export const ADMIN_SCOPED_TABLES = [
   'intro',
   'intro_covers',
   'projects',
-  'blogs',
-  'blog_blocks',
+  'posts',
+  'post_blocks',
   'contacts',
 ] as const;
 

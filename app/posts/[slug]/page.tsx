@@ -1,11 +1,11 @@
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { fetchPublishedBlogBySlug } from '@/lib/actions/blogs';
-import { fetchCommentsForBlog } from '@/lib/actions/comments';
-import { fetchVotesForBlog } from '@/lib/actions/comment-votes';
+import { fetchPublishedPostBySlug } from '@/lib/actions/posts';
+import { fetchCommentsForPost } from '@/lib/actions/comments';
+import { fetchVotesForPost } from '@/lib/actions/comment-votes';
 import { colorForId } from '@/lib/colors';
 import { CommentsSection } from '@/components/comments/CommentsSection';
-import type { BlogBlock } from '@/lib/supabase/types';
+import type { PostBlock } from '@/lib/supabase/types';
 
 function formatPublishDate(publishDate: string | null): string | null {
   if (!publishDate) return null;
@@ -17,7 +17,7 @@ function formatPublishDate(publishDate: string | null): string | null {
   });
 }
 
-function PostBlock({ block }: { block: BlogBlock }) {
+function PostBlock({ block }: { block: PostBlock }) {
   if (block.block_type === 'text') {
     return (
       <div
@@ -38,24 +38,24 @@ function PostBlock({ block }: { block: BlogBlock }) {
 
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const result = await fetchPublishedBlogBySlug(slug);
+  const result = await fetchPublishedPostBySlug(slug);
   if (!result) notFound();
-  const { blog, blocks } = result;
-  const comments = await fetchCommentsForBlog(blog.id);
-  const votes = await fetchVotesForBlog(comments.map((c) => c.id));
+  const { post, blocks } = result;
+  const comments = await fetchCommentsForPost(post.id);
+  const votes = await fetchVotesForPost(comments.map((c) => c.id));
 
-  const formattedDate = formatPublishDate(blog.publish_date);
-  const dateline = [blog.author, formattedDate, blog.location].filter(Boolean).join(' · ');
+  const formattedDate = formatPublishDate(post.publish_date);
+  const dateline = [post.author, formattedDate, post.location].filter(Boolean).join(' · ');
 
   return (
     <main className="pt-16 pb-24">
       <section className="relative w-full lg:w-[70vw] mx-auto px-4 lg:px-0">
         <div
           className="relative w-full aspect-[16/9] rounded-[24px] overflow-hidden"
-          style={{ backgroundColor: colorForId(blog.id) }}
+          style={{ backgroundColor: colorForId(post.id) }}
         >
-          {blog.cover_image_url && (
-            <Image src={blog.cover_image_url} alt={blog.title} fill className="object-cover" />
+          {post.cover_image_url && (
+            <Image src={post.cover_image_url} alt={post.title} fill className="object-cover" />
           )}
         </div>
 
@@ -63,7 +63,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           className="mt-8 text-gray-900 dark:text-gray-50"
           style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 100, fontSize: 'clamp(56px, 5vw, 70px)', lineHeight: 1.1 }}
         >
-          {blog.title}
+          {post.title}
         </h1>
 
         <p
@@ -83,7 +83,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           ))}
         </div>
 
-        <CommentsSection blogId={blog.id} initialComments={comments} initialVotes={votes} />
+        <CommentsSection postId={post.id} initialComments={comments} initialVotes={votes} />
       </section>
     </main>
   );

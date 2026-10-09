@@ -28,15 +28,15 @@ export type Project = {
   updated_at: string;
 };
 
-export type BlogStatus = 'draft' | 'published';
+export type PostStatus = 'draft' | 'published';
 
-export type Blog = {
+export type Post = {
   id: string;
   title: string;
   slug: string;
   publish_date: string | null;
   location: string | null;
-  status: BlogStatus;
+  status: PostStatus;
   excerpt: string | null;
   cover_image_url: string | null;
   author: string;
@@ -46,9 +46,9 @@ export type Blog = {
 
 export type BlockType = 'text' | 'photo';
 
-export type BlogBlock = {
+export type PostBlock = {
   id: string;
-  blog_id: string;
+  post_id: string;
   block_type: BlockType;
   content: string | null;
   image_url: string | null;
@@ -57,7 +57,7 @@ export type BlogBlock = {
 
 export type Comment = {
   id: string;
-  blog_id: string;
+  post_id: string;
   parent_comment_id: string | null;
   author_id: string;
   author_email: string;
@@ -68,8 +68,8 @@ export type Comment = {
   removed_by_moderator: boolean;
 };
 
-export type CommentWithBlog = Comment & {
-  blogs: { title: string; slug: string } | null;
+export type CommentWithPost = Comment & {
+  posts: { title: string; slug: string } | null;
 };
 
 export type CommentVote = {

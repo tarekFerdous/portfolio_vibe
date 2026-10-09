@@ -1,15 +1,15 @@
-import { fetchBlogWithBlocks } from '@/lib/actions/blogs';
+import { fetchPostWithBlocks } from '@/lib/actions/posts';
 import { notFound } from 'next/navigation';
-import { BlogEditorClient } from './BlogEditorClient';
-import type { Blog, BlogBlock } from '@/lib/supabase/types';
+import { PostEditorClient } from './PostEditorClient';
+import type { Post, PostBlock } from '@/lib/supabase/types';
 
-export default async function BlogEditorPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PostEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  let result: { blog: Blog; blocks: BlogBlock[] } | null = null;
+  let result: { post: Post; blocks: PostBlock[] } | null = null;
   let fetchError: string | null = null;
   try {
-    result = await fetchBlogWithBlocks(id);
+    result = await fetchPostWithBlocks(id);
   } catch (err) {
     fetchError = err instanceof Error ? err.message : 'Failed to load post.';
   }
@@ -24,8 +24,8 @@ export default async function BlogEditorPage({ params }: { params: Promise<{ id:
       >
         Edit Post
       </h1>
-      <BlogEditorClient
-        blog={result?.blog ?? null}
+      <PostEditorClient
+        post={result?.post ?? null}
         initialBlocks={result?.blocks ?? []}
         fetchError={fetchError}
       />

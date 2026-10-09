@@ -30,7 +30,7 @@ function countDescendants(node: CommentNode): number {
 interface CommentItemProps {
   node: CommentNode;
   depth: number;
-  blogId: string;
+  postId: string;
   sessionState: SessionState;
   currentUserId: string | null;
   votes: CommentVote[];
@@ -44,7 +44,7 @@ interface CommentItemProps {
 export function CommentItem({
   node,
   depth,
-  blogId,
+  postId,
   sessionState,
   currentUserId,
   votes,
@@ -128,7 +128,7 @@ export function CommentItem({
     setSubmitting(true);
     setError('');
     try {
-      const comment = await postComment({ blogId, content: trimmed, parentCommentId: node.id });
+      const comment = await postComment({ postId, content: trimmed, parentCommentId: node.id });
       onCommentPosted(comment);
       setContent('');
       setIsReplying(false);
@@ -461,7 +461,7 @@ export function CommentItem({
               key={child.id}
               node={child}
               depth={depth + 1}
-              blogId={blogId}
+              postId={postId}
               sessionState={sessionState}
               currentUserId={currentUserId}
               votes={votes}

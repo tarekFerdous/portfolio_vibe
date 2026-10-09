@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { PostCard } from './PostCard';
-import type { Blog } from '@/lib/supabase/types';
+import type { Post } from '@/lib/supabase/types';
 
-const basePost: Blog = {
+const basePost: Post = {
   id: 'post-1',
   title: 'Test Post',
   slug: 'test-post',
@@ -33,7 +33,7 @@ describe('PostCard', () => {
   });
 
   it('renders the cover image when cover_image_url is set', () => {
-    const post: Blog = { ...basePost, cover_image_url: 'https://example.com/cover.jpg' };
+    const post: Post = { ...basePost, cover_image_url: 'https://example.com/cover.jpg' };
     render(<PostCard post={post} />);
     const image = screen.getByAltText(post.title);
     expect(image).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe('PostCard', () => {
   });
 
   it('handles a null publish_date gracefully', () => {
-    const post: Blog = { ...basePost, publish_date: null };
+    const post: Post = { ...basePost, publish_date: null };
     render(<PostCard post={post} />);
     expect(screen.getByText('Test Post')).toBeInTheDocument();
   });

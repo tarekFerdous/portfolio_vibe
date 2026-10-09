@@ -1,9 +1,9 @@
 import { fetchAllCommentsForModeration } from '@/lib/actions/comments';
 import { CommentsModerationClient } from '@/components/admin/CommentsModerationClient';
-import type { CommentWithBlog } from '@/lib/supabase/types';
+import type { CommentWithPost } from '@/lib/supabase/types';
 
 export default async function CommentsPage() {
-  let comments: CommentWithBlog[] = [];
+  let comments: CommentWithPost[] = [];
   let fetchError: string | null = null;
   try {
     comments = await fetchAllCommentsForModeration();

@@ -1,19 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { upsertBlog, uploadBlogCover, deleteBlogCover } from '@/lib/actions/blogs';
+import { upsertPost, uploadPostCover, deletePostCover } from '@/lib/actions/posts';
 import { uploadImage, deleteImage } from '@/lib/actions/images';
-import { BlogBlockEditor, type Block } from '@/components/admin/BlogBlockEditor';
+import { PostBlockEditor, type Block } from '@/components/admin/PostBlockEditor';
 import { ImageUploadZone } from '@/components/admin/ImageUploadZone';
-import type { Blog, BlogBlock, BlogStatus } from '@/lib/supabase/types';
+import type { Post, PostBlock, PostStatus } from '@/lib/supabase/types';
 
 interface Props {
-  blog: Blog | null;
-  initialBlocks: BlogBlock[];
+  post: Post | null;
+  initialBlocks: PostBlock[];
   fetchError?: string | null;
 }
 
-function dbBlocksToEditorBlocks(dbBlocks: BlogBlock[]): Block[] {
+function dbBlocksToEditorBlocks(dbBlocks: PostBlock[]): Block[] {
   return dbBlocks.map((b) =>
     b.block_type === 'text'
       ? { id: b.id, type: 'text', content: b.content ?? '' }
@@ -21,20 +21,20 @@ function dbBlocksToEditorBlocks(dbBlocks: BlogBlock[]): Block[] {
   );
 }
 
-export function BlogEditorClient({ blog, initialBlocks, fetchError }: Props) {
-  const [title, setTitle] = useState(blog?.title ?? '');
-  const [publishDate, setPublishDate] = useState(blog?.publish_date ?? '');
-  const [location, setLocation] = useState(blog?.location ?? '');
-  const [status, setStatus] = useState<BlogStatus>(blog?.status ?? 'draft');
-  const [excerpt, setExcerpt] = useState(blog?.excerpt ?? '');
-  const [author, setAuthor] = useState(blog?.author ?? 'Tarek Ferdous');
-  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(blog?.cover_image_url ?? null);
+export function PostEditorClient({ post, initialBlocks, fetchError }: Props) {
+  const [title, setTitle] = useState(post?.title ?? '');
+  const [publishDate, setPublishDate] = useState(post?.publish_date ?? '');
+  const [location, setLocation] = useState(post?.location ?? '');
+  const [status, setStatus] = useState<PostStatus>(post?.status ?? 'draft');
+  const [excerpt, setExcerpt] = useState(post?.excerpt ?? '');
+  const [author, setAuthor] = useState(post?.author ?? 'Tarek Ferdous');
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(post?.cover_image_url ?? null);
   const [blocks, setBlocks] = useState<Block[]>(dbBlocksToEditorBlocks(initialBlocks));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  if (fetchError || !blog) {
+  if (fetchError || !post) {
     return (
       <div
         role="alert"
@@ -51,15 +51,15 @@ export function BlogEditorClient({ blog, initialBlocks, fetchError }: Props) {
     );
   }
 
-  const blogId = blog.id;
+  const postId = post.id;
 
   async function handleSave() {
     setSaving(true);
     setSaved(false);
     setSaveError(null);
     try {
-      await upsertBlog({
-        id: blogId,
+      await upsertPost({
+        id: postId,
         title,
         publish_date: publishDate || null,
         location: location || null,
@@ -149,12 +149,12 @@ export function BlogEditorClient({ blog, initialBlocks, fetchError }: Props) {
             <ImageUploadZone
               currentUrl={coverImageUrl}
               onUpload={async (file) => {
-                const url = await uploadBlogCover(file);
+                const url = await uploadPostCover(file);
                 setCoverImageUrl(url);
                 return url;
               }}
               onDelete={async (url) => {
-                await deleteBlogCover(url);
+                await deletePostCover(url);
                 setCoverImageUrl(null);
               }}
               label="Upload cover image"
@@ -194,11 +194,11 @@ export function BlogEditorClient({ blog, initialBlocks, fetchError }: Props) {
         }}
       >
         <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Content</h2>
-        <BlogBlockEditor
+        <PostBlockEditor
           blocks={blocks}
           onChange={setBlocks}
-          onImageUpload={(file) => uploadImage('blog-photos', file)}
-          onImageDelete={(url) => deleteImage('blog-photos', url)}
+          onImageUpload={(file) => uploadImage('post-photos', file)}
+          onImageDelete={(url) => deleteImage('post-photos', url)}
         />
       </section>
 

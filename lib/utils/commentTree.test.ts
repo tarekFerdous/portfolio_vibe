@@ -5,7 +5,7 @@ import type { Comment, CommentVote } from '@/lib/supabase/types';
 function makeComment(overrides: Partial<Comment> = {}): Comment {
   return {
     id: 'comment-1',
-    blog_id: 'blog-1',
+    post_id: 'post-1',
     parent_comment_id: null,
     author_id: 'user-1',
     author_email: 'visitor@example.com',
