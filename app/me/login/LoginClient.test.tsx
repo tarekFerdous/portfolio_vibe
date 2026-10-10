@@ -73,6 +73,31 @@ describe('LoginClient', () => {
     expect(screen.getByRole('button', { name: /send magic link/i })).toBeEnabled();
   });
 
+  it('shows the initial error with the button enabled', () => {
+    render(<LoginClient initialError="That link failed." />);
+
+    expect(screen.getByText('That link failed.')).toHaveClass('text-red-500');
+    expect(screen.getByRole('button', { name: /send magic link/i })).toBeEnabled();
+  });
+
+  it('clears the initial error when sending and shows the sending → confirmation flow', async () => {
+    let resolveRequest: (value: { ok: true }) => void = () => {};
+    mockSendAdminMagicLink.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      })
+    );
+    render(<LoginClient initialError="That link failed." />);
+
+    clickSend();
+
+    expect(await screen.findByRole('button', { name: /sending/i })).toBeDisabled();
+    expect(screen.queryByText('That link failed.')).not.toBeInTheDocument();
+    resolveRequest({ ok: true });
+    expect(await screen.findByText('Check your email for a magic link.')).toBeInTheDocument();
+    expect(screen.queryByText('That link failed.')).not.toBeInTheDocument();
+  });
+
   it('shows a generic error if the action call itself fails', async () => {
     mockSendAdminMagicLink.mockRejectedValue(new Error('network down'));
     render(<LoginClient />);

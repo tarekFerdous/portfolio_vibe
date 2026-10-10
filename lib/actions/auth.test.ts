@@ -62,11 +62,24 @@ describe('sendAdminMagicLink', () => {
   });
 
   it('returns the Supabase error message on failure', async () => {
-    mockSignInWithOtp.mockResolvedValue({ error: { message: 'Rate limit exceeded' } });
+    mockSignInWithOtp.mockResolvedValue({ error: { message: 'Rate limit exceeded', status: 429 } });
 
     await expect(sendAdminMagicLink('https://tarekferdous.me')).resolves.toEqual({
       ok: false,
       error: 'Rate limit exceeded',
+    });
+  });
+
+  it.each([
+    { message: '{}', status: 500 },
+    { message: '{}', status: 504 },
+    { message: 'fetch failed', status: 0 },
+  ])('returns a readable error instead of the raw message for a $status failure', async (authError) => {
+    mockSignInWithOtp.mockResolvedValue({ error: authError });
+
+    await expect(sendAdminMagicLink('https://tarekferdous.me')).resolves.toEqual({
+      ok: false,
+      error: "Couldn't send the sign-in email right now. Try again in a few minutes.",
     });
   });
 });

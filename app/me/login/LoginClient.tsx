@@ -3,9 +3,14 @@
 import { useState } from 'react';
 import { sendAdminMagicLink } from '@/lib/actions/auth';
 
-export function LoginClient() {
+interface LoginClientProps {
+  /** Error to show before any send attempt, e.g. a failed magic-link callback. */
+  initialError?: string;
+}
+
+export function LoginClient({ initialError = '' }: LoginClientProps) {
   const [sent, setSent] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {

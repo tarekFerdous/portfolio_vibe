@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 export type SendAdminMagicLinkResult = { ok: true } | { ok: false; error: string };
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
+const SEND_FAILED_MESSAGE = "Couldn't send the sign-in email right now. Try again in a few minutes.";
 
 /** Accepts the browser's `window.location.origin`: https anywhere, plain http only for local dev. */
 function parseSiteOrigin(input: string): string | null {
@@ -42,6 +43,11 @@ export async function sendAdminMagicLink(siteOrigin: string): Promise<SendAdminM
     email: adminEmail,
     options: { emailRedirectTo: `${origin}/auth/callback?next=/me` },
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    // auth-js stringifies 5xx/network failures (e.g. a rejected custom-SMTP send) into
+    // unhelpful text like "{}", so only pass through Supabase's own 4xx messages.
+    const isServerFailure = !error.status || error.status >= 500;
+    return { ok: false, error: isServerFailure ? SEND_FAILED_MESSAGE : error.message };
+  }
   return { ok: true };
 }

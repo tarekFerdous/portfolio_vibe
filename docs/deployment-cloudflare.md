@@ -34,6 +34,52 @@ is not working yet (see Open issue below).
    Worker → Settings → Domains & Routes → Add Custom Domain. DNS + SSL auto-provisioned
    since the zone is already in this Cloudflare account. **Working.**
 
+## Supabase Authentication URL Configuration
+
+Magic-link sign-in (admin and commenter) only lands back on the site if Supabase allows the
+redirect. Set these in the Supabase dashboard → Authentication → URL Configuration:
+
+- **Site URL**: `https://tarekferdous.me`. Supabase silently falls back to this when a
+  requested redirect isn't on the allow-list, so it must never be left as
+  `http://localhost:3000` (that leftover sent production magic links to localhost).
+- **Redirect URLs**:
+  - `https://tarekferdous.me/auth/callback**`
+  - `http://localhost:3000/auth/callback**`
+
+  The trailing `**` is required: both flows redirect to `/auth/callback?next=…` (admin uses
+  `next=/me`, commenters use `next=<current post path>`), and without the wildcard the query
+  string makes the URL fail the allow-list check, triggering the Site URL fallback.
+
+### Auth email delivery (Resend custom SMTP)
+
+Supabase's built-in email sender is capped at ~2 auth emails per hour across the whole
+project (admin and commenter sign-ins share it), which surfaces as "email rate limit
+exceeded". Auth emails go through Resend instead (free tier: 3,000/month, 100/day):
+
+1. Resend: add the domain `tarekferdous.me`, add its DNS records in Cloudflare
+   (DNS only, not proxied) until it shows **Verified**, then create an API key.
+2. Supabase → Authentication → Emails → SMTP Settings → enable custom SMTP:
+   host `smtp.resend.com`, port `465`, username `resend`, password = the Resend API key,
+   sender `login@tarekferdous.me`.
+3. Supabase → Authentication → Rate Limits → "Email sent": raise from the 30/hour custom-SMTP
+   default if needed. The effective cap is the lower of this and Resend's plan limit.
+
+A separate per-address cooldown (one request per 60 seconds) still applies.
+
+The admin magic-link Server Action builds the redirect from the browser's
+`window.location.origin` (validated server-side: `https` anywhere, `http` only for
+`localhost`/`127.0.0.1`), not from request headers, because behind Workers the host/proto
+headers don't reliably match the public URL.
+
+### Worker runtime secrets
+
+`ADMIN_EMAIL` and `GITHUB_TOKEN` are read at request time by the Worker, so they must be set
+as **Worker runtime secrets** (Worker → Settings → Variables and Secrets, or
+`npx wrangler secret put <NAME>`), not only as Workers Builds build variables. Build
+variables are only available during `opennextjs-cloudflare build`; without the runtime
+secret, admin sign-in returns "Sign-in is not configured." and project README fetches fall
+back to unauthenticated GitHub API calls (low rate limit).
+
 ## Open issue: www.tarekferdous.me
 
 Goal: `www.tarekferdous.me` → 301 redirect → `https://tarekferdous.me`.

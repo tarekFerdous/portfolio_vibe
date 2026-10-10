@@ -1,6 +1,16 @@
 import { LoginClient } from './LoginClient';
 
-export default function LoginPage() {
+/** Shown when /auth/callback can't exchange the code (expired, already used or rejected link). */
+const AUTH_FAILED_MESSAGE = 'That sign-in link has expired or was already used — send a new one.';
+
+interface LoginPageProps {
+  searchParams: Promise<{ error?: string | string[] }>;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { error } = await searchParams;
+  const initialError = error === 'auth_failed' ? AUTH_FAILED_MESSAGE : '';
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div
@@ -20,7 +30,7 @@ export default function LoginPage() {
           Admin
         </h1>
 
-        <LoginClient />
+        <LoginClient initialError={initialError} />
       </div>
     </div>
   );
