@@ -13,7 +13,7 @@ export function LoginClient() {
     setLoading(true);
     setError('');
     try {
-      const result = await sendAdminMagicLink();
+      const result = await sendAdminMagicLink(window.location.origin);
       if (result.ok) {
         setSent(true);
       } else {

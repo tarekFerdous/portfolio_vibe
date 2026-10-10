@@ -5,7 +5,7 @@ import { LoginClient } from './LoginClient';
 const mockSendAdminMagicLink = vi.fn();
 
 vi.mock('@/lib/actions/auth', () => ({
-  sendAdminMagicLink: () => mockSendAdminMagicLink(),
+  sendAdminMagicLink: (origin: string) => mockSendAdminMagicLink(origin),
 }));
 
 beforeEach(() => {
@@ -31,6 +31,7 @@ describe('LoginClient', () => {
 
     await screen.findByText('Check your email for a magic link.');
     expect(mockSendAdminMagicLink).toHaveBeenCalledTimes(1);
+    expect(mockSendAdminMagicLink).toHaveBeenCalledWith(window.location.origin);
   });
 
   it('shows a loading state while the request is in flight', async () => {
