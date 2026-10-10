@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ProjectCard } from './ProjectCard';
@@ -8,6 +8,8 @@ import type { Project } from '@/lib/supabase/types';
 const baseProject: Project = {
   id: 'project-1',
   name: 'Test Project',
+  slug: 'test-project',
+  repo_url: null,
   summary: 'A short summary',
   project_description: 'A longer description',
   image_url: null,
@@ -86,100 +88,34 @@ describe('ProjectCard', () => {
     expect(image).toBeInTheDocument();
   });
 
-  it('renders the longest real summary (Enki App, 230 chars) truncated by default with a working See more / See less toggle', () => {
+  it('clamps a long summary without a "See more" toggle, since the card opens the project page', () => {
     const longestSummary =
       'An automated "dead man\'s switch" safety platform — if a user goes silent, a server-side escalation system automatically alerts trusted contacts and releases pre-configured emergency information, with no manual SOS action required.';
-    expect(longestSummary.length).toBe(230);
-    const project: Project = {
-      ...baseProject,
-      name: 'Enki App',
-      summary: longestSummary,
-    };
-    render(<ProjectCard project={project} />);
+    render(<ProjectCard project={{ ...baseProject, summary: longestSummary }} />);
 
-    // Collapsed by default: text is present (line-clamp is CSS-only truncation)
-    // but clamped, and a "See more" control is shown.
-    const collapsedMatches = screen.getAllByText(longestSummary);
-    expect(collapsedMatches.length).toBeGreaterThan(0);
-    collapsedMatches.forEach((el) => {
+    screen.getAllByText(longestSummary).forEach((el) => {
       expect(el.className).toContain('line-clamp');
     });
-    const seeMoreButtons = screen.getAllByRole('button', { name: /see more/i });
-    expect(seeMoreButtons.length).toBeGreaterThan(0);
-
-    // Expand: full text revealed, control swaps to "See less". Expand/collapse
-    // state is shared across the mobile and desktop summary blocks within a
-    // single card instance, so only one of the (duplicate, responsive) See
-    // more buttons needs clicking.
-    fireEvent.click(seeMoreButtons[0]);
-    const expandedMatches = screen.getAllByText(longestSummary);
-    expect(expandedMatches.length).toBeGreaterThan(0);
-    expandedMatches.forEach((el) => {
-      expect(el.className).not.toContain('line-clamp');
-    });
-    const seeLessButtons = screen.getAllByRole('button', { name: /see less/i });
-    expect(seeLessButtons.length).toBeGreaterThan(0);
-
-    // Collapse again: back to truncated with "See more".
-    fireEvent.click(seeLessButtons[0]);
-    const recollapsedMatches = screen.getAllByText(longestSummary);
-    recollapsedMatches.forEach((el) => {
-      expect(el.className).toContain('line-clamp');
-    });
-    expect(
-      screen.getAllByRole('button', { name: /see more/i }).length,
-    ).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /see more/i })).not.toBeInTheDocument();
   });
 
-  it('renders a short summary with no "See more" affordance', () => {
-    const shortSummary = 'A short summary';
-    const project: Project = { ...baseProject, summary: shortSummary };
-    render(<ProjectCard project={project} />);
-    const matches = screen.getAllByText(shortSummary);
-    expect(matches.length).toBeGreaterThan(0);
-    matches.forEach((el) => {
-      expect(el.className).not.toContain('line-clamp');
-    });
-    expect(
-      screen.queryByRole('button', { name: /see more/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /see less/i }),
-    ).not.toBeInTheDocument();
+  it('renders the whole card as a link to the project page, with "Learn More" as a non-interactive cue', () => {
+    render(<ProjectCard project={baseProject} />);
+
+    const link = screen.getByRole('link', { name: /test project/i });
+    expect(link).toHaveAttribute('href', '/projects/test-project');
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    expect(screen.getAllByText('Learn More →').length).toBeGreaterThan(0);
   });
 
-  it('keeps expand/collapse state independent per rendered card', () => {
-    const longestSummary =
-      'An automated "dead man\'s switch" safety platform — if a user goes silent, a server-side escalation system automatically alerts trusted contacts and releases pre-configured emergency information, with no manual SOS action required.';
-    const projectA: Project = {
-      ...baseProject,
-      id: 'project-a',
-      name: 'Project A',
-      summary: longestSummary,
-    };
-    const projectB: Project = {
-      ...baseProject,
-      id: 'project-b',
-      name: 'Project B',
-      summary: longestSummary,
-    };
-    render(
-      <>
-        <ProjectCard project={projectA} />
-        <ProjectCard project={projectB} />
-      </>,
-    );
+  it('calls onActivate and cancels navigation when the card is not active', () => {
+    const onActivate = vi.fn();
+    render(<ProjectCard project={baseProject} isActive={false} onActivate={onActivate} />);
 
-    const [seeMoreA] = screen.getAllByRole('button', { name: /see more/i });
-    fireEvent.click(seeMoreA);
+    const notCancelled = fireEvent.click(screen.getByRole('link', { name: /test project/i }));
 
-    // Card A is expanded ("See less"); Card B remains collapsed ("See more").
-    expect(
-      screen.getAllByRole('button', { name: /see less/i }).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByRole('button', { name: /see more/i }).length,
-    ).toBeGreaterThan(0);
+    expect(notCancelled).toBe(false);
+    expect(onActivate).toHaveBeenCalledTimes(1);
   });
 
   it('renders the longest real project name (45 chars) in full with no truncation', () => {

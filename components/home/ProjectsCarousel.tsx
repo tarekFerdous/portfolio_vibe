@@ -24,7 +24,8 @@ function getBreakpointConstants() {
 export function ProjectsCarousel({ projects }: ProjectsCarouselProps) {
   const SNAP_COUNT = 1 + projects.length;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const wheelThrottleRef = useRef<boolean>(false);
+  const wheelLockRef = useRef<boolean>(false);
+  const wheelIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { currentIndex, scrollToIndex, canScrollLeft, canScrollRight } =
     useCarouselScroll({
@@ -50,11 +51,23 @@ export function ProjectsCarousel({ projects }: ProjectsCarouselProps) {
       const atEnd = currentIndex === SNAP_COUNT - 1;
       if ((atEnd && scrollingForward) || (atStart && !scrollingForward)) return;
       e.preventDefault();
-      if (wheelThrottleRef.current) return;
-      wheelThrottleRef.current = true;
-      setTimeout(() => {
-        wheelThrottleRef.current = false;
-      }, 600);
+
+      // A single trackpad flick fires a long burst of wheel events (momentum
+      // scrolling), so keep pushing the unlock out as long as events keep
+      // arriving. The lock only releases once the gesture actually stops —
+      // a fixed cooldown from the first event can expire mid-flick and let a
+      // second advance through. 350ms comfortably outlasts the gaps that can
+      // open up in a real trackpad's momentum tail, while staying well under
+      // the pause between two deliberate, separate flicks.
+      if (wheelIdleTimeoutRef.current) {
+        clearTimeout(wheelIdleTimeoutRef.current);
+      }
+      wheelIdleTimeoutRef.current = setTimeout(() => {
+        wheelLockRef.current = false;
+      }, 350);
+
+      if (wheelLockRef.current) return;
+      wheelLockRef.current = true;
       if (scrollingForward) {
         scrollToIndex(currentIndex + 1);
       } else {
@@ -63,7 +76,12 @@ export function ProjectsCarousel({ projects }: ProjectsCarouselProps) {
     }
 
     container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      if (wheelIdleTimeoutRef.current) {
+        clearTimeout(wheelIdleTimeoutRef.current);
+      }
+    };
   }, [currentIndex, scrollToIndex]);
 
   return (
@@ -71,6 +89,7 @@ export function ProjectsCarousel({ projects }: ProjectsCarouselProps) {
       <div className="relative">
         <div
           ref={scrollRef}
+          data-testid="projects-carousel-scroll"
           className="flex overflow-x-scroll snap-x snap-mandatory scroll-hidden [scroll-padding-left:11vw] md:[scroll-padding-left:13vw] lg:[scroll-padding-left:15vw]"
         >
           {/* Overview card */}
@@ -95,7 +114,11 @@ export function ProjectsCarousel({ projects }: ProjectsCarouselProps) {
               }}
             >
               <div className="lg:w-[65vw] lg:mx-auto">
-                <ProjectCard project={project} />
+                <ProjectCard
+                  project={project}
+                  isActive={currentIndex === idx + 1}
+                  onActivate={() => scrollToIndex(idx + 1)}
+                />
               </div>
             </div>
           ))}

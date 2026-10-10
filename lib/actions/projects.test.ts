@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   fetchProjects,
   fetchVisibleProjects,
+  fetchVisibleProjectBySlug,
   setProjectVisibility,
   upsertProject,
   deleteProject,
@@ -13,6 +14,7 @@ const allProjects: Project[] = [
   {
     id: 'a',
     name: 'Visible Project',
+    slug: 'visible-project',
     summary: '',
     project_description: '',
     image_url: null,
@@ -25,6 +27,7 @@ const allProjects: Project[] = [
   {
     id: 'b',
     name: 'Hidden Project',
+    slug: 'hidden-project',
     summary: '',
     project_description: '',
     image_url: null,
@@ -43,6 +46,7 @@ function makeQueryBuilder(rows: Project[]) {
     return makeQueryBuilder(rows.filter((r) => (r as unknown as Record<string, unknown>)[column] === value));
   });
   builder.order = vi.fn(() => Promise.resolve({ data: rows, error: null }));
+  builder.maybeSingle = vi.fn(() => Promise.resolve({ data: rows[0] ?? null, error: null }));
   builder.update = vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ data: null, error: null })) }));
   builder.upsert = vi.fn(() => Promise.resolve({ data: null, error: null }));
   builder.delete = vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ data: null, error: null })) }));
@@ -133,6 +137,7 @@ describe('upsertProject', () => {
   const baseProject: Omit<Project, 'created_at' | 'updated_at'> = {
     id: 'a',
     name: 'Visible Project',
+    slug: 'visible-project',
     summary: '',
     project_description: '',
     image_url: null,
@@ -149,6 +154,45 @@ describe('upsertProject', () => {
     mockSupabase.from.mockReturnValueOnce(builder);
 
     await expect(upsertProject(baseProject)).rejects.toThrow('upsert failed');
+  });
+
+  it('turns a slug unique-violation into a readable error', async () => {
+    const builder = makeQueryBuilder(allProjects);
+    (builder.upsert as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+      Promise.resolve({
+        data: null,
+        error: { code: '23505', message: 'duplicate key value violates unique constraint "projects_slug_key"' },
+      })
+    );
+    mockSupabase.from.mockReturnValueOnce(builder);
+
+    await expect(upsertProject(baseProject)).rejects.toThrow('That slug is already used by another project.');
+  });
+});
+
+describe('fetchVisibleProjectBySlug', () => {
+  it('returns the visible project with the given slug', async () => {
+    const result = await fetchVisibleProjectBySlug('visible-project');
+    expect(result?.id).toBe('a');
+  });
+
+  it('returns null for a hidden project', async () => {
+    expect(await fetchVisibleProjectBySlug('hidden-project')).toBeNull();
+  });
+
+  it('returns null for an unknown slug', async () => {
+    expect(await fetchVisibleProjectBySlug('nope')).toBeNull();
+  });
+
+  it('throws when the Supabase query returns an error', async () => {
+    const builder = makeQueryBuilder(allProjects);
+    builder.eq = vi.fn(() => builder);
+    (builder.maybeSingle as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+      Promise.resolve({ data: null, error: { message: 'slug fetch failed' } })
+    );
+    mockSupabase.from.mockReturnValueOnce(builder);
+
+    await expect(fetchVisibleProjectBySlug('visible-project')).rejects.toThrow('slug fetch failed');
   });
 });
 

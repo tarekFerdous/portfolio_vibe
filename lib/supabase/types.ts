@@ -17,6 +17,8 @@ export type ProjectVisibility = 'visible' | 'hidden';
 export type Project = {
   id: string;
   name: string;
+  slug: string;
+  repo_url: string | null;
   summary: string;
   project_description: string;
   image_url: string | null;

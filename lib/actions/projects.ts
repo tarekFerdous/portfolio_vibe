@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { deleteImage, uploadImage } from './images';
 import type { Project } from '@/lib/supabase/types';
 
+const UNIQUE_VIOLATION = '23505';
+const SLUG_TAKEN_MESSAGE = 'That slug is already used by another project.';
+
 export async function fetchProjects(): Promise<Project[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.from('projects').select('*').order('display_order', { ascending: true });
@@ -22,6 +25,18 @@ export async function fetchVisibleProjects(): Promise<Project[]> {
   return data ?? [];
 }
 
+export async function fetchVisibleProjectBySlug(slug: string): Promise<Project | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('slug', slug)
+    .eq('visibility', 'visible')
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function setProjectVisibility(id: string, visibility: Project['visibility']): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from('projects').update({ visibility }).eq('id', id);
@@ -31,6 +46,9 @@ export async function setProjectVisibility(id: string, visibility: Project['visi
 export async function upsertProject(project: Omit<Project, 'created_at' | 'updated_at'>): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from('projects').upsert({ ...project, updated_at: new Date().toISOString() });
+  if (error?.code === UNIQUE_VIOLATION && error.message.includes('slug')) {
+    throw new Error(SLUG_TAKEN_MESSAGE);
+  }
   if (error) throw new Error(error.message);
 }
 

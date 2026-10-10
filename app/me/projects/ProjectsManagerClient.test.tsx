@@ -46,6 +46,8 @@ function makeProject(overrides: Partial<EditingProject> = {}): EditingProject {
   return {
     id: 'project-1',
     name: 'Test Project',
+    slug: 'test-project',
+    repo_url: null,
     summary: 'A short summary',
     project_description: '',
     image_url: null,
@@ -301,5 +303,115 @@ describe('ProjectsManagerClient - reorder error handling', () => {
     await waitFor(() => expect(screen.getByText('Reorder failed')).toBeInTheDocument());
     const names = screen.getAllByText(/^(First|Second)$/).map((el) => el.textContent);
     expect(names).toEqual(['First', 'Second']);
+  });
+});
+
+describe('ProjectForm - slug', () => {
+  function titleInput() {
+    return screen.getByText('Title').parentElement!.querySelector('input')!;
+  }
+
+  it('auto-fills the slug from the name for a project without a saved slug', () => {
+    setup(makeProject({ name: 'New Project', slug: '' }));
+    const slug = screen.getByLabelText('Slug') as HTMLInputElement;
+    expect(slug.value).toBe('new-project');
+
+    fireEvent.change(titleInput(), { target: { value: 'Enki App' } });
+    expect(slug.value).toBe('enki-app');
+  });
+
+  it('stops auto-filling once the slug is edited by hand', () => {
+    setup(makeProject({ name: 'New Project', slug: '' }));
+    const slug = screen.getByLabelText('Slug') as HTMLInputElement;
+
+    fireEvent.change(slug, { target: { value: 'custom-slug' } });
+    fireEvent.change(titleInput(), { target: { value: 'Something Else' } });
+
+    expect(slug.value).toBe('custom-slug');
+  });
+
+  it('does not rewrite an existing saved slug when the name changes', () => {
+    setup(makeProject({ name: 'Old Name', slug: 'old-name' }));
+    fireEvent.change(titleInput(), { target: { value: 'New Name' } });
+    expect((screen.getByLabelText('Slug') as HTMLInputElement).value).toBe('old-name');
+  });
+
+  it('sends the slug to onSave', async () => {
+    const { onSave } = setup(makeProject({ name: 'Enki App', slug: '' }));
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ slug: 'enki-app' })));
+  });
+
+  it('rejects an empty slug without calling onSave', async () => {
+    const { onSave } = setup(makeProject({ slug: 'test-project' }));
+    fireEvent.change(screen.getByLabelText('Slug'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Slug is required.');
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('rejects a slug that is not URL-safe', async () => {
+    const { onSave } = setup(makeProject({ slug: 'test-project' }));
+    fireEvent.change(screen.getByLabelText('Slug'), { target: { value: 'Has Spaces' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/lowercase letters, numbers/);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('rejects a slug already used by another project', async () => {
+    const onSave = vi.fn();
+    render(
+      <ProjectForm project={makeProject({ slug: 'mine' })} onSave={onSave} onCancel={vi.fn()} takenSlugs={['taken']} />
+    );
+    fireEvent.change(screen.getByLabelText('Slug'), { target: { value: 'taken' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That slug is already used by another project.');
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('shows a unique-violation error returned by the server', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('That slug is already used by another project.'));
+    render(<ProjectForm project={makeProject({ slug: 'mine' })} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That slug is already used by another project.');
+  });
+});
+
+describe('ProjectForm - GitHub repo URL', () => {
+  it('saves a valid repo URL', async () => {
+    const { onSave } = setup(makeProject({ slug: 'test-project' }));
+    fireEvent.change(screen.getByLabelText('GitHub repo URL'), {
+      target: { value: 'https://github.com/tarekFerdous/Rhubarb' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ repo_url: 'https://github.com/tarekFerdous/Rhubarb' })
+      )
+    );
+  });
+
+  it('saves an empty repo URL as null', async () => {
+    const { onSave } = setup(makeProject({ slug: 'test-project', repo_url: 'https://github.com/a/b' }));
+    fireEvent.change(screen.getByLabelText('GitHub repo URL'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ repo_url: null })));
+  });
+
+  it('rejects a malformed repo URL without calling onSave', async () => {
+    const { onSave } = setup(makeProject({ slug: 'test-project' }));
+    fireEvent.change(screen.getByLabelText('GitHub repo URL'), {
+      target: { value: 'https://gitlab.com/owner/repo' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Repo URL must look like https://github.com/owner/repo.');
+    expect(onSave).not.toHaveBeenCalled();
   });
 });

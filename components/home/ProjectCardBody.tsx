@@ -6,6 +6,8 @@ interface ProjectCardBodyProps {
   buttonLabel: string;
   onButtonClick?: () => void;
   photo: ReactNode;
+  /** Project cards open a detail page instead of expanding the summary in place. */
+  showSummaryToggle?: boolean;
 }
 
 // Fluid font sizes: reproduce the previous fixed size (26px mobile, 70px desktop)
@@ -55,17 +57,21 @@ export function ProjectCardBody({
   buttonLabel,
   onButtonClick,
   photo,
+  showSummaryToggle = true,
 }: ProjectCardBodyProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const needsTruncation = summary.length > SUMMARY_TRUNCATE_THRESHOLD_CHARS;
   const isTruncated = needsTruncation && !isExpanded;
+  // Without a click handler the CTA is purely visual (e.g. inside a card that
+  // is itself a link), so it must not render as a nested interactive element.
+  const Cta = onButtonClick ? 'button' : 'span';
 
   function handleToggleExpanded() {
     setIsExpanded((expanded) => !expanded);
   }
 
   function renderSummaryToggle() {
-    if (!needsTruncation) {
+    if (!needsTruncation || !showSummaryToggle) {
       return null;
     }
     return (
@@ -157,7 +163,7 @@ export function ProjectCardBody({
           {summary}
         </p>
         {renderSummaryToggle()}
-        <button
+        <Cta
           onClick={onButtonClick}
           className="relative z-10 mt-auto self-start inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gray-900 dark:bg-gray-50 text-gray-50 dark:text-gray-900 hover:opacity-80 transition-opacity"
           style={{
@@ -167,7 +173,7 @@ export function ProjectCardBody({
           }}
         >
           {buttonLabel}
-        </button>
+        </Cta>
       </div>
 
       {photo}
@@ -196,7 +202,7 @@ export function ProjectCardBody({
           {summary}
         </p>
         {renderSummaryToggle()}
-        <button
+        <Cta
           onClick={onButtonClick}
           className="relative z-10 mt-auto inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gray-900 dark:bg-gray-50 text-gray-50 dark:text-gray-900 hover:opacity-80 transition-opacity self-start"
           style={{
@@ -206,7 +212,7 @@ export function ProjectCardBody({
           }}
         >
           {buttonLabel}
-        </button>
+        </Cta>
       </div>
     </div>
   );

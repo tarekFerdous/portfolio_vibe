@@ -5,7 +5,9 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { ImageUploadZone } from '@/components/admin/ImageUploadZone';
 import { upsertProject, deleteProject, reorderProjects, uploadProjectCover, deleteProjectCover, setProjectVisibility } from '@/lib/actions/projects';
 import { colorForId, pickRandomColor } from '@/lib/colors';
+import { parseGitHubRepoUrl } from '@/lib/github/repoUrl';
 import type { Project } from '@/lib/supabase/types';
+import { isValidSlug, slugify } from '@/lib/utils/slug';
 
 interface Props {
   initialProjects: Project[];
@@ -73,23 +75,58 @@ function SkillTagInput({ skills, onChange }: { skills: string[]; onChange: (s: s
 
 type EditingProject = Omit<Project, 'created_at' | 'updated_at'>;
 
-export function ProjectForm({ project, onSave, onCancel }: { project: EditingProject; onSave: (p: EditingProject) => Promise<void>; onCancel: () => void }) {
-  const [values, setValues] = useState<EditingProject>(project);
+function validateProject(values: EditingProject, takenSlugs: string[]): string | null {
+  if (values.summary.length > SUMMARY_MAX_LENGTH) {
+    return `Summary must be ${SUMMARY_MAX_LENGTH} characters or fewer (currently ${values.summary.length}).`;
+  }
+  if (!values.slug) return 'Slug is required.';
+  if (!isValidSlug(values.slug)) {
+    return 'Slug may only contain lowercase letters, numbers, and single hyphens.';
+  }
+  if (takenSlugs.includes(values.slug)) return 'That slug is already used by another project.';
+  if (values.repo_url && !parseGitHubRepoUrl(values.repo_url)) {
+    return 'Repo URL must look like https://github.com/owner/repo.';
+  }
+  return null;
+}
+
+const INPUT_CLASS =
+  'rounded-xl px-3 py-2 text-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20';
+
+export function ProjectForm({
+  project,
+  onSave,
+  onCancel,
+  takenSlugs = [],
+}: {
+  project: EditingProject;
+  onSave: (p: EditingProject) => Promise<void>;
+  onCancel: () => void;
+  takenSlugs?: string[];
+}) {
+  const [values, setValues] = useState<EditingProject>(() => ({
+    ...project,
+    slug: project.slug || slugify(project.name),
+    repo_url: project.repo_url ?? null,
+  }));
+  // A brand-new project (no saved slug yet) keeps its slug in sync with the
+  // name until the slug is edited by hand. Existing slugs are left alone so
+  // renaming a project doesn't silently change its public URL.
+  const [slugEdited, setSlugEdited] = useState(Boolean(project.slug));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   async function handleSave() {
-    if (values.summary.length > SUMMARY_MAX_LENGTH) {
-      setSaveError(
-        `Summary must be ${SUMMARY_MAX_LENGTH} characters or fewer (currently ${values.summary.length}).`
-      );
+    const validationError = validateProject(values, takenSlugs);
+    if (validationError) {
+      setSaveError(validationError);
       return;
     }
     setSaving(true);
     setSaveError(null);
     try {
-      await onSave(values);
+      await onSave({ ...values, repo_url: values.repo_url?.trim() || null });
       setSaving(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -105,8 +142,36 @@ export function ProjectForm({ project, onSave, onCancel }: { project: EditingPro
         <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Title</label>
         <input
           value={values.name}
-          onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
-          className="rounded-xl px-3 py-2 text-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20"
+          onChange={(e) => {
+            const name = e.target.value;
+            setValues((v) => ({ ...v, name, slug: slugEdited ? v.slug : slugify(name) }));
+          }}
+          className={INPUT_CLASS}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor={`slug-${project.id}`} className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Slug</label>
+        <input
+          id={`slug-${project.id}`}
+          value={values.slug}
+          onChange={(e) => {
+            setSlugEdited(true);
+            setValues((v) => ({ ...v, slug: e.target.value }));
+          }}
+          placeholder="my-project"
+          className={INPUT_CLASS}
+        />
+        <span className="text-xs text-gray-400 dark:text-gray-500">/projects/{values.slug || '…'}</span>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor={`repo-url-${project.id}`} className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">GitHub repo URL</label>
+        <input
+          id={`repo-url-${project.id}`}
+          type="url"
+          value={values.repo_url ?? ''}
+          onChange={(e) => setValues((v) => ({ ...v, repo_url: e.target.value }))}
+          placeholder="https://github.com/owner/repo"
+          className={INPUT_CLASS}
         />
       </div>
       <div className="flex flex-col gap-1">
@@ -273,6 +338,8 @@ export function ProjectsManagerClient({ initialProjects, fetchError = null }: Pr
     const newProject: Project = {
       id: crypto.randomUUID(),
       name: 'New Project',
+      slug: '',
+      repo_url: null,
       summary: '',
       project_description: '',
       image_url: null,
@@ -409,6 +476,7 @@ export function ProjectsManagerClient({ initialProjects, fetchError = null }: Pr
                       {expandedId === project.id && (
                         <ProjectForm
                           project={project}
+                          takenSlugs={projects.filter((p) => p.id !== project.id).map((p) => p.slug)}
                           onSave={handleSave}
                           onCancel={() => setExpandedId(null)}
                         />
