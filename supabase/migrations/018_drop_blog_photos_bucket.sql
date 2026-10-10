@@ -4,11 +4,12 @@
 --
 -- IMPORTANT: only run this migration after scripts/migrate-post-photos-bucket.ts
 -- has been executed against the live project AND its verification step
--- (object count + sample URL check) has passed. Running this first would
--- delete images that cover_image_url/image_url still reference.
+-- (object count + sample URL check) has passed.
+--
+-- Supabase blocks direct SQL deletes on storage.objects / storage.buckets
+-- (storage.protect_delete), so this migration only drops the bucket's RLS
+-- policies. Delete the bucket itself through the Storage API: Dashboard ->
+-- Storage -> blog-photos -> "Empty bucket", then "Delete bucket".
 
 drop policy if exists "Public read blog-photos objects" on storage.objects;
 drop policy if exists "Auth write blog-photos objects" on storage.objects;
-
-delete from storage.objects where bucket_id = 'blog-photos';
-delete from storage.buckets where id = 'blog-photos';
