@@ -107,6 +107,16 @@ describe('getProjectReadme', () => {
     }
   });
 
+  it('sends a User-Agent header, which GitHub requires (Workers fetch omits it)', async () => {
+    mockRepo();
+    await getProjectReadme('https://github.com/o/r');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init.headers).toHaveProperty('User-Agent');
+    }
+  });
+
   it('sends a Bearer token when GITHUB_TOKEN is set', async () => {
     vi.stubEnv('GITHUB_TOKEN', 'ghp_secret');
     mockRepo();
