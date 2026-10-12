@@ -35,6 +35,7 @@ const project: Project = {
 
 const readme: ProjectReadmeRow = {
   project_id: 'p1',
+  source: 'github',
   markdown: '# Rhubarb README\n\nHello from GitHub.',
   owner: 'o',
   repo: 'rhubarb',
@@ -45,6 +46,15 @@ const readme: ProjectReadmeRow = {
   fetched_at: '2026-10-01T00:00:00.000Z',
   last_attempt_at: '2026-10-01T00:00:00.000Z',
   last_error: null,
+  manual_markdown: null,
+  manual_updated_at: null,
+};
+
+const manualReadme: ProjectReadmeRow = {
+  ...readme,
+  source: 'manual',
+  manual_markdown: '# Sanitized overview\n\nA general description.\n\n![Arch](docs/arch.png) See [setup](docs/setup.md).',
+  manual_updated_at: '2026-10-11T00:00:00.000Z',
 };
 
 const params = (slug = 'rhubarb') => ({ params: Promise.resolve({ slug }) });
@@ -107,9 +117,10 @@ describe('ProjectPage', () => {
 
   it('renders the hero only when there is no README and no description', async () => {
     vi.mocked(fetchVisibleProjectBySlug).mockResolvedValue({ ...project, repo_url: null, project_description: '  ' });
+    vi.mocked(fetchStoredReadme).mockResolvedValue(null);
     await renderPage();
-    expect(fetchStoredReadme).not.toHaveBeenCalled();
     expect(screen.queryByTestId('project-description')).toBeNull();
+    expect(screen.queryByRole('article')).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'Rhubarb' })).toBeInTheDocument();
   });
 
@@ -147,6 +158,62 @@ describe('ProjectPage', () => {
     vi.mocked(fetchVisibleProjectBySlug).mockResolvedValue({ ...project, repo_url: null });
     await renderPage();
     expect(screen.queryByRole('link', { name: /view on github/i })).toBeNull();
+  });
+
+  it('ignores a leftover GitHub README once repo_url is gone', async () => {
+    vi.mocked(fetchVisibleProjectBySlug).mockResolvedValue({ ...project, repo_url: null });
+    await renderPage();
+    expect(screen.queryByRole('heading', { name: 'Rhubarb README' })).toBeNull();
+    expect(screen.getByTestId('project-description')).toBeInTheDocument();
+  });
+
+  describe('manual README', () => {
+    beforeEach(() => {
+      vi.mocked(fetchStoredReadme).mockResolvedValue(manualReadme);
+    });
+
+    it('renders the manual README instead of the GitHub copy', async () => {
+      await renderPage();
+      expect(screen.getByRole('heading', { name: 'Sanitized overview' })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Rhubarb README' })).toBeNull();
+      expect(screen.queryByTestId('project-description')).toBeNull();
+    });
+
+    it('never shows "View on GitHub", even when the stored repo is public', async () => {
+      await renderPage();
+      expect(screen.queryByRole('link', { name: /view on github/i })).toBeNull();
+    });
+
+    it('strips relative images and links so nothing points into the repo', async () => {
+      await renderPage();
+      const article = screen.getByRole('heading', { name: 'Sanitized overview' }).closest('article')!;
+      expect(article.querySelector('img')).toBeNull();
+      expect(article.querySelector('a')).toBeNull();
+      expect(article).toHaveTextContent('Arch See setup.');
+      expect(article.innerHTML).not.toContain('github.com');
+    });
+
+    it('renders for a project without a repo_url', async () => {
+      vi.mocked(fetchVisibleProjectBySlug).mockResolvedValue({ ...project, repo_url: null });
+      await renderPage();
+      expect(fetchStoredReadme).toHaveBeenCalledWith('p1');
+      expect(screen.getByRole('heading', { name: 'Sanitized overview' })).toBeInTheDocument();
+    });
+
+    it('falls back to the description (not the GitHub copy) when the manual README is empty', async () => {
+      vi.mocked(fetchStoredReadme).mockResolvedValue({ ...manualReadme, manual_markdown: '   ' });
+      await renderPage();
+      expect(screen.queryByRole('heading', { name: 'Rhubarb README' })).toBeNull();
+      expect(screen.getByTestId('project-description')).toBeInTheDocument();
+    });
+
+    it('falls back to the hero when the manual README and description are both empty', async () => {
+      vi.mocked(fetchVisibleProjectBySlug).mockResolvedValue({ ...project, project_description: '' });
+      vi.mocked(fetchStoredReadme).mockResolvedValue({ ...manualReadme, manual_markdown: null });
+      await renderPage();
+      expect(screen.queryByTestId('project-description')).toBeNull();
+      expect(screen.getByRole('heading', { level: 1, name: 'Rhubarb' })).toBeInTheDocument();
+    });
   });
 
   it('404s for a hidden or missing project', async () => {

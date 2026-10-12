@@ -7,7 +7,8 @@ import { rehypeGitHubReadme, type ReadmeContext } from '@/lib/github/readmeTrans
 
 interface ProjectReadmeProps {
   markdown: string;
-  context: ReadmeContext;
+  /** The GitHub repo the README came from. Omitted for a manually pasted README. */
+  context?: ReadmeContext;
 }
 
 const GLASS_PANEL: CSSProperties = {
@@ -111,7 +112,8 @@ const components: Components = {
 /**
  * Renders a GitHub README with the site's own typography and glass panels
  * rather than GitHub's look. Raw HTML is allowed but sanitized (GitHub's
- * allow-list), and relative URLs/badges are fixed up by rehypeGitHubReadme.
+ * allow-list), and relative URLs/badges are fixed up by rehypeGitHubReadme
+ * (or stripped, when there is no repo context).
  */
 export function ProjectReadme({ markdown, context }: ProjectReadmeProps) {
   return (
@@ -125,7 +127,7 @@ export function ProjectReadme({ markdown, context }: ProjectReadmeProps) {
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw, [rehypeGitHubReadme, context], rehypeSanitize]}
+        rehypePlugins={[rehypeRaw, context ? [rehypeGitHubReadme, context] : rehypeGitHubReadme, rehypeSanitize]}
         components={components}
       >
         {markdown}

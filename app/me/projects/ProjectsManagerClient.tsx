@@ -3,11 +3,16 @@
 import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { ImageUploadZone } from '@/components/admin/ImageUploadZone';
-import { refreshAllProjectReadmes, type ReadmeRefreshSummaryEntry } from '@/lib/actions/projectReadmes';
+import { ProjectReadme } from '@/components/projects/ProjectReadme';
+import {
+  refreshAllProjectReadmes,
+  type ReadmeRefreshSummaryEntry,
+  type ReadmeSourceInput,
+} from '@/lib/actions/projectReadmes';
 import { upsertProject, deleteProject, reorderProjects, uploadProjectCover, deleteProjectCover, setProjectVisibility } from '@/lib/actions/projects';
 import { colorForId, pickRandomColor } from '@/lib/colors';
 import { parseGitHubRepoUrl } from '@/lib/github/repoUrl';
-import type { Project, ReadmeErrorReason, ReadmeStatus } from '@/lib/supabase/types';
+import type { Project, ReadmeErrorReason, ReadmeSource, ReadmeStatus } from '@/lib/supabase/types';
 import { formatRelativeTime } from '@/lib/utils/relativeTime';
 import { isValidSlug, slugify } from '@/lib/utils/slug';
 
@@ -28,6 +33,11 @@ const README_ERROR_LABELS: Record<ReadmeErrorReason, string> = {
 };
 
 function readmeStatusText(status: ReadmeStatus | undefined): string {
+  if (status?.source === 'manual') {
+    return status.manual_markdown && status.manual_updated_at
+      ? `Manual README · updated ${formatRelativeTime(status.manual_updated_at)}`
+      : 'Manual README empty';
+  }
   if (!status) return 'README not fetched yet';
   const fetched = status.fetched_at
     ? status.has_markdown
@@ -44,12 +54,18 @@ function readmeStatusText(status: ReadmeStatus | undefined): string {
 function formatRefreshSummary(summary: ReadmeRefreshSummaryEntry[]): string {
   if (summary.length === 0) return 'No projects have a repo URL.';
   const failed = summary.filter((entry) => entry.outcome === 'error');
-  const refreshed = `Refreshed ${summary.length - failed.length}`;
-  if (failed.length === 0) return refreshed;
-  const failures = failed
-    .map((entry) => `${entry.name} (${README_ERROR_LABELS[entry.reason ?? 'network']})`)
-    .join(', ');
-  return `${refreshed} · Failed ${failed.length}: ${failures}`;
+  const skipped = summary.filter((entry) => entry.outcome === 'skipped_manual');
+  const parts = [`Refreshed ${summary.length - failed.length - skipped.length}`];
+  if (skipped.length > 0) {
+    parts.push(`Skipped ${skipped.length} (manual): ${skipped.map((entry) => entry.name).join(', ')}`);
+  }
+  if (failed.length > 0) {
+    const failures = failed
+      .map((entry) => `${entry.name} (${README_ERROR_LABELS[entry.reason ?? 'network']})`)
+      .join(', ');
+    parts.push(`Failed ${failed.length}: ${failures}`);
+  }
+  return parts.join(' · ');
 }
 
 // Keep in sync with the `projects_summary_max_length` check constraint in
@@ -127,18 +143,33 @@ function validateProject(values: EditingProject, takenSlugs: string[]): string |
 const INPUT_CLASS =
   'rounded-xl px-3 py-2 text-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20';
 
+const SEGMENT_CLASS = (active: boolean) =>
+  `px-3 py-1.5 rounded-xl text-sm transition-colors ${
+    active
+      ? 'bg-gray-900 dark:bg-gray-50 text-gray-50 dark:text-gray-900'
+      : 'bg-black/[0.06] dark:bg-white/[0.08] text-gray-700 dark:text-gray-300 hover:bg-black/10 dark:hover:bg-white/[0.12]'
+  }`;
+
 export function ProjectForm({
   project,
+  readme,
   onSave,
   onCancel,
   takenSlugs = [],
 }: {
   project: EditingProject;
+  /** The project's stored README status; supplies the current source and manual text. */
+  readme?: ReadmeStatus;
   /** Resolves with a warning to show instead of "Saved!" when the save succeeded only partially. */
-  onSave: (p: EditingProject) => Promise<string | void>;
+  onSave: (p: EditingProject, readme: ReadmeSourceInput) => Promise<string | void>;
   onCancel: () => void;
   takenSlugs?: string[];
 }) {
+  const [readmeSource, setReadmeSource] = useState<ReadmeSource>(readme?.source ?? 'github');
+  // Only ever the stored manual text — never prefilled from the GitHub copy, so unsanitized
+  // org content can't be published by saving without editing.
+  const [manualMarkdown, setManualMarkdown] = useState(readme?.manual_markdown ?? '');
+  const [previewing, setPreviewing] = useState(false);
   const [values, setValues] = useState<EditingProject>(() => ({
     ...project,
     slug: project.slug || slugify(project.name),
@@ -163,7 +194,10 @@ export function ProjectForm({
     setSaveError(null);
     setSaveWarning(null);
     try {
-      const warning = await onSave({ ...values, repo_url: values.repo_url?.trim() || null });
+      const warning = await onSave(
+        { ...values, repo_url: values.repo_url?.trim() || null },
+        { source: readmeSource, manualMarkdown }
+      );
       setSaving(false);
       if (warning) {
         setSaveWarning(warning);
@@ -214,6 +248,66 @@ export function ProjectForm({
           placeholder="https://github.com/owner/repo"
           className={INPUT_CLASS}
         />
+      </div>
+      <div className="flex flex-col gap-2">
+        <span id={`readme-source-${project.id}`} className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          README source
+        </span>
+        <div role="group" aria-labelledby={`readme-source-${project.id}`} className="flex gap-2">
+          {(['github', 'manual'] as const).map((source) => (
+            <button
+              key={source}
+              type="button"
+              aria-pressed={readmeSource === source}
+              onClick={() => setReadmeSource(source)}
+              className={SEGMENT_CLASS(readmeSource === source)}
+            >
+              {source === 'github' ? 'GitHub' : 'Manual'}
+            </button>
+          ))}
+        </div>
+        {readmeSource === 'manual' && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor={`manual-readme-${project.id}`} className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Manual README (Markdown)
+              </label>
+              <div role="group" aria-label="Manual README view" className="flex gap-1">
+                <button type="button" aria-pressed={!previewing} onClick={() => setPreviewing(false)} className={SEGMENT_CLASS(!previewing)}>
+                  Write
+                </button>
+                <button type="button" aria-pressed={previewing} onClick={() => setPreviewing(true)} className={SEGMENT_CLASS(previewing)}>
+                  Preview
+                </button>
+              </div>
+            </div>
+            {previewing ? (
+              <div
+                data-testid="manual-readme-preview"
+                className="max-h-[480px] overflow-y-auto rounded-xl px-4 py-3 border border-black/[0.08] dark:border-white/[0.08]"
+              >
+                {manualMarkdown.trim() ? (
+                  <ProjectReadme markdown={manualMarkdown} />
+                ) : (
+                  <p className="text-sm text-gray-400 dark:text-gray-500">Nothing to preview yet.</p>
+                )}
+              </div>
+            ) : (
+              <textarea
+                id={`manual-readme-${project.id}`}
+                value={manualMarkdown}
+                onChange={(e) => setManualMarkdown(e.target.value)}
+                rows={14}
+                placeholder="# Project name&#10;&#10;A general overview of what the project does…"
+                className={`${INPUT_CLASS} resize-y font-mono`}
+              />
+            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Don&apos;t include internal URLs, client names, credentials, or org-specific details. Images must use absolute
+              URLs; relative links and images are removed. GitHub refreshes never overwrite this text.
+            </p>
+          </div>
+        )}
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Summary</label>
@@ -370,8 +464,8 @@ export function ProjectsManagerClient({ initialProjects, initialReadmeStatuses =
     });
   }
 
-  async function handleSave(updated: EditingProject): Promise<string | void> {
-    const { readme } = await upsertProject(updated);
+  async function handleSave(updated: EditingProject, readmeInput: ReadmeSourceInput): Promise<string | void> {
+    const { readme } = await upsertProject(updated, readmeInput);
     setProjects((prev) =>
       prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
     );
@@ -568,11 +662,11 @@ export function ProjectsManagerClient({ initialProjects, initialReadmeStatuses =
                         </button>
                       </div>
 
-                      {project.repo_url && (
+                      {(project.repo_url || readmeStatuses[project.id]?.source === 'manual') && (
                         <p
                           data-testid="readme-status"
                           className={`mt-1 pl-7 text-xs ${
-                            readmeStatuses[project.id]?.last_error
+                            readmeStatuses[project.id]?.last_error && readmeStatuses[project.id]?.source !== 'manual'
                               ? 'text-amber-600 dark:text-amber-400'
                               : 'text-gray-500 dark:text-gray-400'
                           }`}
@@ -590,6 +684,7 @@ export function ProjectsManagerClient({ initialProjects, initialReadmeStatuses =
                       {expandedId === project.id && (
                         <ProjectForm
                           project={project}
+                          readme={readmeStatuses[project.id]}
                           takenSlugs={projects.filter((p) => p.id !== project.id).map((p) => p.slug)}
                           onSave={handleSave}
                           onCancel={() => setExpandedId(null)}

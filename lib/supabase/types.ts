@@ -32,9 +32,13 @@ export type Project = {
 
 export type ReadmeErrorReason = 'no_access' | 'rate_limited' | 'network';
 
+/** `manual` pages render the admin-pasted `manual_markdown`; GitHub refreshes never touch it. */
+export type ReadmeSource = 'github' | 'manual';
+
 export type ProjectReadmeRow = {
   project_id: string;
-  /** Null when the repo has no README (or no fetch has succeeded yet). */
+  source: ReadmeSource;
+  /** Null when the repo has no README (or no fetch has succeeded yet). GitHub source only. */
   markdown: string | null;
   owner: string | null;
   repo: string | null;
@@ -45,13 +49,19 @@ export type ProjectReadmeRow = {
   fetched_at: string | null;
   last_attempt_at: string | null;
   last_error: ReadmeErrorReason | null;
+  /** Sanitized README pasted by the admin; null when empty. */
+  manual_markdown: string | null;
+  manual_updated_at: string | null;
 };
 
-/** What the admin Projects manager needs to show a row's README status. */
+/** What the admin Projects manager needs to show a row's README status and edit its manual README. */
 export type ReadmeStatus = {
+  source: ReadmeSource;
   fetched_at: string | null;
   last_error: ReadmeErrorReason | null;
   has_markdown: boolean;
+  manual_markdown: string | null;
+  manual_updated_at: string | null;
 };
 
 export type PostStatus = 'draft' | 'published';

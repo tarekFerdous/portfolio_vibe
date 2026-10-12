@@ -4,6 +4,7 @@ import {
   fetchStoredReadme,
   refreshAllProjectReadmes,
   refreshProjectReadme,
+  saveReadmeSource,
 } from './projectReadmes';
 import { fetchGitHubReadme, type ReadmeFetchResult } from '@/lib/github/readme';
 import type { ProjectReadmeRow } from '@/lib/supabase/types';
@@ -22,6 +23,9 @@ const db = {
 function emptyReadme(projectId: string): ProjectReadmeRow {
   return {
     project_id: projectId,
+    source: 'github',
+    manual_markdown: null,
+    manual_updated_at: null,
     markdown: null,
     owner: null,
     repo: null,
@@ -38,7 +42,7 @@ function emptyReadme(projectId: string): ProjectReadmeRow {
 /** In-memory stand-in for the PostgREST query builder, covering only what the store module uses. */
 function makeBuilder(table: string) {
   const filters: Array<(row: Row) => boolean> = [];
-  let op: 'select' | 'delete' | 'upsert' = 'select';
+  let op: 'select' | 'delete' | 'upsert' | 'update' = 'select';
   let payload: Partial<ProjectReadmeRow> & { project_id: string } = { project_id: '' };
 
   const rows = (): Row[] => (table === 'projects' ? db.projects : [...db.readmes.values()]);
@@ -48,6 +52,15 @@ function makeBuilder(table: string) {
     if (op === 'delete') {
       for (const row of matching()) db.readmes.delete(row.project_id as string);
       return { data: null, error: null };
+    }
+    if (op === 'update') {
+      const updated = matching().map((row) => {
+        const merged = { ...(row as ProjectReadmeRow), ...payload };
+        db.readmes.set(merged.project_id, merged);
+        return merged;
+      });
+      if (updated.some((row) => db.failingWrites.has(row.project_id))) return { data: null, error: { message: 'write failed' } };
+      return { data: updated, error: null };
     }
     if (op === 'upsert') {
       if (db.failingWrites.has(payload.project_id)) return { data: null, error: { message: 'write failed' } };
@@ -82,6 +95,12 @@ function makeBuilder(table: string) {
     upsert: (row: typeof payload) => {
       op = 'upsert';
       payload = row;
+      return builder;
+    },
+    // An update payload never carries project_id, so merging it keeps each row's own id.
+    update: (row: Omit<Partial<ProjectReadmeRow>, 'project_id'>) => {
+      op = 'update';
+      payload = row as typeof payload;
       return builder;
     },
     single,
@@ -183,7 +202,14 @@ describe('refreshProjectReadme', () => {
       expect(result).toEqual({
         outcome: 'error',
         reason,
-        status: { fetched_at: '2026-01-01T00:00:00.000Z', last_error: reason, has_markdown: true },
+        status: {
+          source: 'github',
+          fetched_at: '2026-01-01T00:00:00.000Z',
+          last_error: reason,
+          has_markdown: true,
+          manual_markdown: null,
+          manual_updated_at: null,
+        },
       });
     }
   );
@@ -290,9 +316,156 @@ describe('fetchReadmeStatuses', () => {
     db.readmes.set('a', storedReadme('a'));
     db.readmes.set('b', storedReadme('b', { markdown: null, last_error: 'rate_limited' }));
 
+    db.readmes.set(
+      'c',
+      storedReadme('c', { source: 'manual', manual_markdown: '# Manual', manual_updated_at: '2026-02-01T00:00:00.000Z' })
+    );
+
+    const manualFields = { manual_markdown: null, manual_updated_at: null };
     expect(await fetchReadmeStatuses()).toEqual({
-      a: { fetched_at: '2026-01-01T00:00:00.000Z', last_error: null, has_markdown: true },
-      b: { fetched_at: '2026-01-01T00:00:00.000Z', last_error: 'rate_limited', has_markdown: false },
+      a: { source: 'github', fetched_at: '2026-01-01T00:00:00.000Z', last_error: null, has_markdown: true, ...manualFields },
+      b: { source: 'github', fetched_at: '2026-01-01T00:00:00.000Z', last_error: 'rate_limited', has_markdown: false, ...manualFields },
+      c: {
+        source: 'manual',
+        fetched_at: '2026-01-01T00:00:00.000Z',
+        last_error: null,
+        has_markdown: true,
+        manual_markdown: '# Manual',
+        manual_updated_at: '2026-02-01T00:00:00.000Z',
+      },
+    });
+  });
+});
+
+describe('manual README source', () => {
+  const manual = (projectId: string, overrides: Partial<ProjectReadmeRow> = {}) =>
+    storedReadme(projectId, {
+      source: 'manual',
+      manual_markdown: '# Sanitized',
+      manual_updated_at: '2026-02-01T00:00:00.000Z',
+      ...overrides,
+    });
+
+  describe('refreshProjectReadme', () => {
+    it('skips a manual project: no GitHub call and no write', async () => {
+      db.projects = [project('a')];
+      db.readmes.set('a', manual('a'));
+
+      expect(await refreshProjectReadme('a')).toEqual({ outcome: 'skipped_manual' });
+      expect(fetchGitHubReadme).not.toHaveBeenCalled();
+      expect(db.readmes.get('a')).toEqual(manual('a'));
+    });
+
+    it('keeps a manual project\'s row when it has no repo_url', async () => {
+      db.projects = [project('a', { repo_url: null })];
+      db.readmes.set('a', manual('a'));
+
+      expect(await refreshProjectReadme('a')).toEqual({ outcome: 'skipped_manual' });
+      expect(db.readmes.get('a')).toEqual(manual('a'));
+    });
+
+    it('keeps stored manual text when a GitHub-source project loses its repo_url, dropping only the GitHub copy', async () => {
+      db.projects = [project('a', { repo_url: null })];
+      db.readmes.set('a', manual('a', { source: 'github' }));
+
+      const result = await refreshProjectReadme('a');
+
+      expect(result).toMatchObject({ outcome: 'removed', status: { source: 'github', has_markdown: false, manual_markdown: '# Sanitized' } });
+      expect(db.readmes.get('a')).toMatchObject({
+        source: 'github',
+        markdown: null,
+        owner: null,
+        html_url: null,
+        fetched_at: null,
+        manual_markdown: '# Sanitized',
+      });
+    });
+
+    it('never touches the source or the manual text when refreshing a GitHub-source project', async () => {
+      db.projects = [project('a')];
+      db.readmes.set('a', manual('a', { source: 'github' }));
+
+      await refreshProjectReadme('a');
+
+      expect(db.readmes.get('a')).toMatchObject({
+        source: 'github',
+        markdown: '# New README',
+        manual_markdown: '# Sanitized',
+        manual_updated_at: '2026-02-01T00:00:00.000Z',
+      });
+    });
+  });
+
+  describe('refreshAllProjectReadmes', () => {
+    it('lists manual projects as skipped_manual without fetching them', async () => {
+      db.projects = [project('a', { name: 'Qraving' }), project('b', { name: 'Org Dashboard' })];
+      db.readmes.set('b', manual('b'));
+
+      const summary = await refreshAllProjectReadmes();
+
+      expect(summary.map(({ name, outcome }) => ({ name, outcome }))).toEqual([
+        { name: 'Qraving', outcome: 'ok' },
+        { name: 'Org Dashboard', outcome: 'skipped_manual' },
+      ]);
+      expect(fetchGitHubReadme).toHaveBeenCalledTimes(1);
+      expect(db.readmes.get('b')).toEqual(manual('b'));
+    });
+  });
+
+  describe('saveReadmeSource', () => {
+    it('stores a manual README for a project with no row yet', async () => {
+      const result = await saveReadmeSource('a', { source: 'manual', manualMarkdown: '# Overview' });
+
+      const row = db.readmes.get('a');
+      expect(row).toMatchObject({ source: 'manual', manual_markdown: '# Overview', markdown: null });
+      expect(row?.manual_updated_at).toEqual(expect.any(String));
+      expect(result).toMatchObject({
+        previousSource: 'github',
+        status: { source: 'manual', manual_markdown: '# Overview', manual_updated_at: row?.manual_updated_at },
+      });
+    });
+
+    it('switches an existing GitHub row to manual and keeps the GitHub copy', async () => {
+      db.readmes.set('a', storedReadme('a'));
+
+      await saveReadmeSource('a', { source: 'manual', manualMarkdown: '# Overview' });
+
+      expect(db.readmes.get('a')).toMatchObject({ source: 'manual', manual_markdown: '# Overview', markdown: '# Old README' });
+    });
+
+    it('stores blank text as null', async () => {
+      await saveReadmeSource('a', { source: 'manual', manualMarkdown: '  \n ' });
+      expect(db.readmes.get('a')).toMatchObject({ source: 'manual', manual_markdown: null });
+    });
+
+    it('bumps manual_updated_at only when the text changes', async () => {
+      db.readmes.set('a', manual('a'));
+
+      await saveReadmeSource('a', { source: 'manual', manualMarkdown: '# Sanitized' });
+      expect(db.readmes.get('a')?.manual_updated_at).toBe('2026-02-01T00:00:00.000Z');
+
+      await saveReadmeSource('a', { source: 'manual', manualMarkdown: '# Edited' });
+      expect(db.readmes.get('a')?.manual_updated_at).not.toBe('2026-02-01T00:00:00.000Z');
+    });
+
+    it('switching back to GitHub keeps the manual text and reports the previous source', async () => {
+      db.readmes.set('a', manual('a'));
+
+      const result = await saveReadmeSource('a', { source: 'github', manualMarkdown: '' });
+
+      expect(result.previousSource).toBe('manual');
+      expect(db.readmes.get('a')).toMatchObject({ source: 'github', manual_markdown: '# Sanitized' });
+    });
+
+    it('writes nothing for a GitHub-source save when there is no row', async () => {
+      const result = await saveReadmeSource('a', { source: 'github', manualMarkdown: '' });
+      expect(result).toEqual({ previousSource: 'github', status: null });
+      expect(db.readmes.has('a')).toBe(false);
+    });
+
+    it('throws when the write fails', async () => {
+      db.failingWrites.add('a');
+      await expect(saveReadmeSource('a', { source: 'manual', manualMarkdown: '# X' })).rejects.toThrow('write failed');
     });
   });
 });

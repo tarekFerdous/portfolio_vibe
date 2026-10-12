@@ -8,10 +8,22 @@ import {
   deleteProject,
   reorderProjects,
 } from './projects';
-import { refreshProjectReadme } from './projectReadmes';
-import type { Project } from '@/lib/supabase/types';
+import { refreshProjectReadme, saveReadmeSource } from './projectReadmes';
+import type { Project, ReadmeStatus } from '@/lib/supabase/types';
 
-vi.mock('./projectReadmes', () => ({ refreshProjectReadme: vi.fn() }));
+vi.mock('./projectReadmes', () => ({ refreshProjectReadme: vi.fn(), saveReadmeSource: vi.fn() }));
+
+function makeStatus(overrides: Partial<ReadmeStatus> = {}): ReadmeStatus {
+  return {
+    source: 'github',
+    fetched_at: '2026-10-01T00:00:00.000Z',
+    last_error: null,
+    has_markdown: true,
+    manual_markdown: null,
+    manual_updated_at: null,
+    ...overrides,
+  };
+}
 
 const allProjects: Project[] = [
   {
@@ -67,10 +79,9 @@ vi.mock('@/lib/supabase/server', () => ({
 beforeEach(() => {
   mockSupabase.from.mockClear();
   vi.mocked(refreshProjectReadme).mockReset();
-  vi.mocked(refreshProjectReadme).mockResolvedValue({
-    outcome: 'ok',
-    status: { fetched_at: '2026-10-01T00:00:00.000Z', last_error: null, has_markdown: true },
-  });
+  vi.mocked(refreshProjectReadme).mockResolvedValue({ outcome: 'ok', status: makeStatus() });
+  vi.mocked(saveReadmeSource).mockReset();
+  vi.mocked(saveReadmeSource).mockResolvedValue({ previousSource: 'github', status: null });
 });
 
 describe('fetchProjects', () => {
@@ -206,6 +217,88 @@ describe('upsertProject', () => {
     const result = await upsertProject({ ...baseProject, repo_url: 'https://github.com/o/r' });
 
     expect(result.readme).toEqual({ outcome: 'error', reason: 'network' });
+  });
+
+  describe('with a README source', () => {
+    const manualStatus = makeStatus({ source: 'manual', manual_markdown: '# Sanitized', manual_updated_at: '2026-10-11T00:00:00.000Z' });
+
+    it('saves a manual README and never calls GitHub, even when the repo_url changed', async () => {
+      vi.mocked(saveReadmeSource).mockResolvedValue({ previousSource: 'github', status: manualStatus });
+      withStoredRepoUrl('https://github.com/org/old');
+
+      const result = await upsertProject(
+        { ...baseProject, repo_url: 'https://github.com/org/new' },
+        { source: 'manual', manualMarkdown: '# Sanitized' }
+      );
+
+      expect(saveReadmeSource).toHaveBeenCalledWith('a', { source: 'manual', manualMarkdown: '# Sanitized' });
+      expect(refreshProjectReadme).not.toHaveBeenCalled();
+      expect(result.readme).toEqual({ outcome: 'skipped_manual', status: manualStatus });
+    });
+
+    it('keeps a manual README when the repo_url is removed', async () => {
+      vi.mocked(saveReadmeSource).mockResolvedValue({ previousSource: 'manual', status: manualStatus });
+      withStoredRepoUrl('https://github.com/org/r');
+
+      await upsertProject({ ...baseProject, repo_url: null }, { source: 'manual', manualMarkdown: '# Sanitized' });
+
+      expect(refreshProjectReadme).not.toHaveBeenCalled();
+    });
+
+    it('saves a manual README for a project without a repo_url', async () => {
+      vi.mocked(saveReadmeSource).mockResolvedValue({ previousSource: 'github', status: manualStatus });
+      withStoredRepoUrl(null);
+
+      const result = await upsertProject({ ...baseProject, repo_url: null }, { source: 'manual', manualMarkdown: '# Sanitized' });
+
+      expect(saveReadmeSource).toHaveBeenCalledWith('a', { source: 'manual', manualMarkdown: '# Sanitized' });
+      expect(result.readme).toMatchObject({ outcome: 'skipped_manual' });
+    });
+
+    it('fetches from GitHub right away when switching from manual back to GitHub', async () => {
+      vi.mocked(saveReadmeSource).mockResolvedValue({ previousSource: 'manual', status: makeStatus() });
+      withStoredRepoUrl('https://github.com/o/r');
+
+      const result = await upsertProject(
+        { ...baseProject, repo_url: 'https://github.com/o/r' },
+        { source: 'github', manualMarkdown: '# Sanitized' }
+      );
+
+      expect(refreshProjectReadme).toHaveBeenCalledWith('a');
+      expect(result.readme).toMatchObject({ outcome: 'ok' });
+    });
+
+    it('still saves and reports the failure when that switch-back fetch fails', async () => {
+      vi.mocked(saveReadmeSource).mockResolvedValue({ previousSource: 'manual', status: makeStatus() });
+      vi.mocked(refreshProjectReadme).mockResolvedValue({
+        outcome: 'error',
+        reason: 'no_access',
+        status: makeStatus({ last_error: 'no_access' }),
+      });
+      withStoredRepoUrl('https://github.com/o/r');
+
+      const result = await upsertProject({ ...baseProject, repo_url: 'https://github.com/o/r' }, { source: 'github', manualMarkdown: '' });
+
+      expect(result.readme).toMatchObject({ outcome: 'error', reason: 'no_access' });
+    });
+
+    it('leaves the README alone for a GitHub save with no source change and an unchanged repo_url', async () => {
+      withStoredRepoUrl('https://github.com/o/r');
+
+      const result = await upsertProject({ ...baseProject, repo_url: 'https://github.com/o/r' }, { source: 'github', manualMarkdown: '' });
+
+      expect(refreshProjectReadme).not.toHaveBeenCalled();
+      expect(result.readme).toBeNull();
+    });
+
+    it('reports a failed manual README write after the project itself saved', async () => {
+      vi.mocked(saveReadmeSource).mockRejectedValue(new Error('write failed'));
+      withStoredRepoUrl(null);
+
+      await expect(
+        upsertProject({ ...baseProject, repo_url: null }, { source: 'manual', manualMarkdown: '# X' })
+      ).rejects.toThrow('Saved the project, but not its README: write failed');
+    });
   });
 
   it('turns a slug unique-violation into a readable error', async () => {

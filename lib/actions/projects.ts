@@ -2,7 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { deleteImage, uploadImage } from './images';
-import { refreshProjectReadme, type ReadmeRefreshResult } from './projectReadmes';
+import {
+  refreshProjectReadme,
+  saveReadmeSource,
+  type ReadmeRefreshResult,
+  type ReadmeSourceInput,
+  type SaveReadmeSourceResult,
+} from './projectReadmes';
 import type { Project } from '@/lib/supabase/types';
 
 export type SaveProjectResult = {
@@ -49,7 +55,16 @@ export async function setProjectVisibility(id: string, visibility: Project['visi
   if (error) throw new Error(error.message);
 }
 
-export async function upsertProject(project: Omit<Project, 'created_at' | 'updated_at'>): Promise<SaveProjectResult> {
+/**
+ * Saves a project and keeps its stored README in step. With `readme`, the
+ * README source (and any manual text) is saved too. A manual source never
+ * touches GitHub. A GitHub source re-syncs when repo_url was added, changed or
+ * removed, or when the source was just switched back from manual.
+ */
+export async function upsertProject(
+  project: Omit<Project, 'created_at' | 'updated_at'>,
+  readme?: ReadmeSourceInput,
+): Promise<SaveProjectResult> {
   const supabase = await createClient();
   const { data: existing, error: lookupError } = await supabase
     .from('projects')
@@ -64,8 +79,21 @@ export async function upsertProject(project: Omit<Project, 'created_at' | 'updat
   }
   if (error) throw new Error(error.message);
 
+  let switchedToGitHub = false;
+  if (readme) {
+    let saved: SaveReadmeSourceResult;
+    try {
+      saved = await saveReadmeSource(project.id, readme);
+    } catch (err) {
+      // Unlike a GitHub fetch, this is the admin's own text: surface it so it can be re-saved.
+      throw new Error(`Saved the project, but not its README: ${err instanceof Error ? err.message : 'unknown error'}`);
+    }
+    if (readme.source === 'manual') return { readme: { outcome: 'skipped_manual', status: saved.status } };
+    switchedToGitHub = saved.previousSource === 'manual';
+  }
+
   // Saving other fields leaves the stored README alone; only a repo_url change re-syncs it.
-  if ((project.repo_url ?? null) === (existing?.repo_url ?? null)) return { readme: null };
+  if (!switchedToGitHub && (project.repo_url ?? null) === (existing?.repo_url ?? null)) return { readme: null };
   try {
     return { readme: await refreshProjectReadme(project.id) };
   } catch {

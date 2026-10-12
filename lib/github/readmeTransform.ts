@@ -69,11 +69,17 @@ function isRepoRawUrl(src: string, ctx: ReadmeContext): boolean {
   return src.startsWith(`https://raw.githubusercontent.com/${ctx.owner}/${ctx.repo}/`);
 }
 
-function shouldDropImage(src: string, ctx: ReadmeContext): boolean {
+function shouldDropImage(src: string, ctx: ReadmeContext | null): boolean {
   if (!src) return true;
   if (isBadgeUrl(src)) return true;
   // Private-repo assets need auth that the visitor's browser doesn't have.
-  return ctx.isPrivate && (!isAbsoluteUrl(src) || isRepoRawUrl(src, ctx));
+  if (!ctx?.isPrivate) return false;
+  return !isAbsoluteUrl(src) || isRepoRawUrl(src, ctx);
+}
+
+/** True for a URL that only makes sense relative to a repo: not absolute and not an #anchor. */
+function isRepoRelative(url: string): boolean {
+  return Boolean(url) && !isAbsoluteUrl(url) && !url.startsWith('#');
 }
 
 function hasVisibleContent(node: ElementContent): boolean {
@@ -82,7 +88,7 @@ function hasVisibleContent(node: ElementContent): boolean {
   return false;
 }
 
-function transformChildren<T extends RootContent | ElementContent>(children: T[], ctx: ReadmeContext): T[] {
+function transformChildren<T extends RootContent | ElementContent>(children: T[], ctx: ReadmeContext | null): T[] {
   const result: T[] = [];
   for (const child of children) {
     if (child.type !== 'element') {
@@ -94,13 +100,20 @@ function transformChildren<T extends RootContent | ElementContent>(children: T[]
     if (element.tagName === 'img') {
       const src = String(element.properties.src ?? '');
       if (shouldDropImage(src, ctx)) continue;
-      element.properties.src = resolveImageUrl(src, ctx);
+      if (!ctx && isRepoRelative(src)) {
+        // No repo to load it from: show the alt text instead of a broken image.
+        const alt = String(element.properties.alt ?? '').trim();
+        if (alt) result.push({ type: 'text', value: alt } as T);
+        continue;
+      }
+      if (ctx) element.properties.src = resolveImageUrl(src, ctx);
       result.push(child);
       continue;
     }
 
     if (element.tagName === 'source' && typeof element.properties.srcSet === 'string') {
-      element.properties.srcSet = resolveImageUrl(element.properties.srcSet, ctx);
+      if (!ctx && isRepoRelative(element.properties.srcSet)) continue;
+      if (ctx) element.properties.srcSet = resolveImageUrl(element.properties.srcSet, ctx);
     }
 
     element.children = transformChildren(element.children, ctx);
@@ -109,7 +122,14 @@ function transformChildren<T extends RootContent | ElementContent>(children: T[]
       // A link that only wrapped badge images is now empty — drop it too.
       if (!element.children.some(hasVisibleContent)) continue;
       const href = element.properties.href;
-      if (typeof href === 'string') element.properties.href = resolveLinkUrl(href, ctx);
+      if (typeof href === 'string') {
+        if (!ctx && isRepoRelative(href)) {
+          // No repo to point into: keep the link's text, drop the link.
+          result.push(...(element.children as T[]));
+          continue;
+        }
+        if (ctx) element.properties.href = resolveLinkUrl(href, ctx);
+      }
     }
 
     result.push(child);
@@ -125,9 +145,13 @@ function transformChildren<T extends RootContent | ElementContent>(children: T[]
  * - relative links -> github.com/{owner}/{repo}/blob/{branch}/...
  * - badge/shield images (and links left empty without them) are removed
  * - absolute URLs and #anchors are left alone
+ *
+ * Without a context (a manually pasted README) there is no repo to resolve
+ * against: relative images become their alt text and relative links become
+ * plain text, so nothing breaks or points back into a private repo.
  */
-export function rehypeGitHubReadme(ctx: ReadmeContext) {
+export function rehypeGitHubReadme(ctx?: ReadmeContext) {
   return (tree: Root) => {
-    tree.children = transformChildren(tree.children, ctx);
+    tree.children = transformChildren(tree.children, ctx ?? null);
   };
 }

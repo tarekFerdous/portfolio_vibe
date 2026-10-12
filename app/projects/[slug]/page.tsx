@@ -20,10 +20,14 @@ export default async function ProjectPage({ params }: PageProps) {
   const project = await fetchVisibleProjectBySlug(slug);
   if (!project) notFound();
 
-  // Rendered from the stored copy only; the admin refreshes it from GitHub. A failed
-  // read falls back to the description rather than erroring the page.
-  const readme = project.repo_url ? await fetchStoredReadme(project.id).catch(() => null) : null;
-  const githubUrl = readme?.is_private === false ? readme.html_url : null;
+  // Rendered from the stored copy only; the admin refreshes it from GitHub or pastes a
+  // manual one. A failed read falls back to the description rather than erroring the page.
+  const readme = await fetchStoredReadme(project.id).catch(() => null);
+  const isManual = readme?.source === 'manual';
+  const manualMarkdown = isManual && readme.manual_markdown?.trim() ? readme.manual_markdown : null;
+  const githubReadme = !isManual && project.repo_url ? readme : null;
+  // A manual README is usually standing in for an org/private repo, so it never links to GitHub.
+  const githubUrl = githubReadme?.is_private === false ? githubReadme.html_url : null;
   const description = project.project_description.trim();
 
   return (
@@ -40,15 +44,17 @@ export default async function ProjectPage({ params }: PageProps) {
         <ProjectHero project={project} githubUrl={githubUrl} />
 
         <div className="mt-12">
-          {readme?.markdown && readme.owner && readme.repo && readme.branch ? (
+          {manualMarkdown ? (
+            <ProjectReadme markdown={manualMarkdown} />
+          ) : githubReadme?.markdown && githubReadme.owner && githubReadme.repo && githubReadme.branch ? (
             <ProjectReadme
-              markdown={readme.markdown}
+              markdown={githubReadme.markdown}
               context={{
-                owner: readme.owner,
-                repo: readme.repo,
-                branch: readme.branch,
-                readmePath: readme.readme_path ?? 'README.md',
-                isPrivate: readme.is_private ?? true,
+                owner: githubReadme.owner,
+                repo: githubReadme.repo,
+                branch: githubReadme.branch,
+                readmePath: githubReadme.readme_path ?? 'README.md',
+                isPrivate: githubReadme.is_private ?? true,
               }}
             />
           ) : (

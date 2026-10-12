@@ -96,3 +96,56 @@ describe('ProjectReadme', () => {
     expect(screen.getByAltText('shot').className).toContain('rounded-[24px]');
   });
 });
+
+describe('ProjectReadme without a repo context (manual README)', () => {
+  function renderManual(markdown: string) {
+    return render(<ProjectReadme markdown={markdown} />).container;
+  }
+
+  it('shows a relative image as its alt text', () => {
+    const container = renderManual('Before ![Architecture diagram](docs/arch.png) after');
+    expect(container.querySelector('img')).toBeNull();
+    expect(container).toHaveTextContent('Before Architecture diagram after');
+  });
+
+  it('drops a relative image with no alt text entirely', () => {
+    const container = renderManual('![](./shot.png)\n\nText');
+    expect(container.querySelector('img')).toBeNull();
+    expect(container).toHaveTextContent(/^Text$/);
+  });
+
+  it('keeps an absolute image', () => {
+    renderManual('![ext](https://example.com/a.png)');
+    expect(screen.getByAltText('ext')).toHaveAttribute('src', 'https://example.com/a.png');
+  });
+
+  it('turns a relative link into plain text', () => {
+    const container = renderManual('See [the setup guide](docs/setup.md) for details.');
+    expect(container.querySelector('a')).toBeNull();
+    expect(container).toHaveTextContent('See the setup guide for details.');
+  });
+
+  it('turns relative links and images in raw HTML into text too', () => {
+    const container = renderManual('<p><a href="CONTRIBUTING.md">Contributing</a> <img src="logo.png" alt="Logo"></p>');
+    expect(container.querySelector('a')).toBeNull();
+    expect(container.querySelector('img')).toBeNull();
+    expect(container).toHaveTextContent('Contributing Logo');
+  });
+
+  it('keeps absolute links and #anchors', () => {
+    renderManual('[Site](https://example.com) and [Usage](#usage)');
+    expect(screen.getByRole('link', { name: 'Site' })).toHaveAttribute('href', 'https://example.com');
+    expect(screen.getByRole('link', { name: 'Usage' })).toHaveAttribute('href', '#usage');
+  });
+
+  it('never points anything at GitHub', () => {
+    const container = renderManual('[a](src/index.ts) ![b](img/b.png)');
+    expect(container.innerHTML).not.toContain('github');
+  });
+
+  it('still drops badges', () => {
+    const container = renderManual('[![CI](https://img.shields.io/badge/ci-passing-green)](https://ci.example.com)\n\nReal content');
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getByText('Real content')).toBeInTheDocument();
+  });
+});

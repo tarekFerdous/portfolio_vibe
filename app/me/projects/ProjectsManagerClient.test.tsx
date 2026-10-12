@@ -95,7 +95,8 @@ describe('ProjectForm - Description field', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ project_description: 'A brand new description.' })
+      expect.objectContaining({ project_description: 'A brand new description.' }),
+      expect.anything()
     ));
   });
 
@@ -110,7 +111,8 @@ describe('ProjectForm - Description field', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ project_description: '' })
+      expect.objectContaining({ project_description: '' }),
+      expect.anything()
     ));
   });
 });
@@ -245,7 +247,8 @@ describe('ProjectForm - Randomize color', () => {
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ bg_color: '#00ff00' })
+      expect.objectContaining({ bg_color: '#00ff00' }),
+      expect.anything()
     ));
     const savedProject = onSave.mock.calls[0][0];
     expect(savedProject.bg_color).not.toBe('#8b5cf6');
@@ -265,7 +268,8 @@ describe('ProjectForm - Summary length validation', () => {
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ summary })
+      expect.objectContaining({ summary }),
+      expect.anything()
     ));
   });
 
@@ -344,7 +348,7 @@ describe('ProjectForm - slug', () => {
   it('sends the slug to onSave', async () => {
     const { onSave } = setup(makeProject({ name: 'Enki App', slug: '' }));
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ slug: 'enki-app' })));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ slug: 'enki-app' }),expect.anything()));
   });
 
   it('rejects an empty slug without calling onSave', async () => {
@@ -396,7 +400,8 @@ describe('ProjectForm - GitHub repo URL', () => {
 
     await waitFor(() =>
       expect(onSave).toHaveBeenCalledWith(
-        expect.objectContaining({ repo_url: 'https://github.com/tarekFerdous/Rhubarb' })
+        expect.objectContaining({ repo_url: 'https://github.com/tarekFerdous/Rhubarb' }),
+        expect.anything()
       )
     );
   });
@@ -406,7 +411,7 @@ describe('ProjectForm - GitHub repo URL', () => {
     fireEvent.change(screen.getByLabelText('GitHub repo URL'), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ repo_url: null })));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ repo_url: null }),expect.anything()));
   });
 
   it('rejects a malformed repo URL without calling onSave', async () => {
@@ -422,6 +427,18 @@ describe('ProjectForm - GitHub repo URL', () => {
 });
 
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+function makeStatus(overrides: Partial<ReadmeStatus> = {}): ReadmeStatus {
+  return {
+    source: 'github',
+    fetched_at: null,
+    last_error: null,
+    has_markdown: false,
+    manual_markdown: null,
+    manual_updated_at: null,
+    ...overrides,
+  };
+}
 
 describe('ProjectsManagerClient - Refresh READMEs', () => {
   beforeEach(() => {
@@ -478,7 +495,7 @@ describe('ProjectsManagerClient - Refresh READMEs', () => {
         name: 'Qraving',
         outcome: 'error',
         reason: 'rate_limited',
-        status: { fetched_at: null, last_error: 'rate_limited', has_markdown: false },
+        status: makeStatus({ fetched_at: null, last_error: 'rate_limited', has_markdown: false }),
       },
     ]);
     const projects = [makeFullProject({ id: 'a', name: 'Qraving', bg_color: '#123456', repo_url: 'https://github.com/o/q' })];
@@ -503,12 +520,12 @@ describe('ProjectsManagerClient - README status per row', () => {
   }
 
   it('shows a relative fetched time', () => {
-    const status = renderWithStatus({ a: { fetched_at: hoursAgo(2), last_error: null, has_markdown: true } });
+    const status = renderWithStatus({ a: makeStatus({ fetched_at: hoursAgo(2), last_error: null, has_markdown: true }) });
     expect(status).toHaveTextContent('README fetched 2 hours ago');
   });
 
   it('shows "No README" when the repo has none', () => {
-    const status = renderWithStatus({ a: { fetched_at: hoursAgo(2), last_error: null, has_markdown: false } });
+    const status = renderWithStatus({ a: makeStatus({ fetched_at: hoursAgo(2), last_error: null, has_markdown: false }) });
     expect(status).toHaveTextContent(/^No README$/);
   });
 
@@ -517,12 +534,12 @@ describe('ProjectsManagerClient - README status per row', () => {
     ['rate_limited', 'rate limited'],
     ['network', 'network error'],
   ] as const)('shows "Fetch failed" for a %s error', (reason, label) => {
-    const status = renderWithStatus({ a: { fetched_at: null, last_error: reason, has_markdown: false } });
+    const status = renderWithStatus({ a: makeStatus({ fetched_at: null, last_error: reason, has_markdown: false }) });
     expect(status).toHaveTextContent(new RegExp(`^Fetch failed: ${label}$`));
   });
 
   it('still shows when the README was last fetched after a failure', () => {
-    const status = renderWithStatus({ a: { fetched_at: hoursAgo(2), last_error: 'network', has_markdown: true } });
+    const status = renderWithStatus({ a: makeStatus({ fetched_at: hoursAgo(2), last_error: 'network', has_markdown: true }) });
     expect(status).toHaveTextContent('Fetch failed: network error · README fetched 2 hours ago');
   });
 
@@ -556,7 +573,7 @@ describe('ProjectsManagerClient - README sync on save', () => {
       readme: {
         outcome: 'error',
         reason: 'no_access',
-        status: { fetched_at: null, last_error: 'no_access', has_markdown: false },
+        status: makeStatus({ fetched_at: null, last_error: 'no_access', has_markdown: false }),
       },
     });
     renderAndEdit(makeFullProject({ id: 'a', bg_color: '#123456' }));
@@ -571,7 +588,7 @@ describe('ProjectsManagerClient - README sync on save', () => {
 
   it('closes the form and shows the fresh status after a successful README fetch', async () => {
     vi.mocked(upsertProject).mockResolvedValue({
-      readme: { outcome: 'ok', status: { fetched_at: new Date().toISOString(), last_error: null, has_markdown: true } },
+      readme: { outcome: 'ok', status: makeStatus({ fetched_at: new Date().toISOString(), last_error: null, has_markdown: true }) },
     });
     renderAndEdit(makeFullProject({ id: 'a', bg_color: '#123456' }));
     saveWithRepoUrl('https://github.com/o/new');
@@ -583,11 +600,176 @@ describe('ProjectsManagerClient - README sync on save', () => {
   it('clears the status when the repo_url is removed', async () => {
     vi.mocked(upsertProject).mockResolvedValue({ readme: { outcome: 'removed', status: null } });
     renderAndEdit(makeFullProject({ id: 'a', bg_color: '#123456', repo_url: 'https://github.com/o/r' }), {
-      a: { fetched_at: hoursAgo(2), last_error: null, has_markdown: true },
+      a: makeStatus({ fetched_at: hoursAgo(2), last_error: null, has_markdown: true }),
     });
     saveWithRepoUrl('');
 
     await waitFor(() => expect(screen.queryByTestId('readme-status')).toBeNull());
-    expect(upsertProject).toHaveBeenCalledWith(expect.objectContaining({ repo_url: null }));
+    expect(upsertProject).toHaveBeenCalledWith(expect.objectContaining({ repo_url: null }), expect.anything());
+  });
+});
+
+describe('ProjectForm - manual README', () => {
+  function switchToManual() {
+    fireEvent.click(screen.getByRole('button', { name: 'Manual' }));
+  }
+
+  it('defaults to the GitHub source and hides the manual textarea', () => {
+    setup(makeProject());
+    expect(screen.getByRole('button', { name: 'GitHub' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByLabelText('Manual README (Markdown)')).toBeNull();
+  });
+
+  it('shows an empty textarea and the helper note on the first switch to Manual', () => {
+    render(
+      <ProjectForm
+        project={makeProject({ repo_url: 'https://github.com/org/secret' })}
+        // A stored GitHub README must never be copied into the manual textarea.
+        readme={makeStatus({ fetched_at: hoursAgo(1), has_markdown: true })}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    switchToManual();
+
+    expect((screen.getByLabelText('Manual README (Markdown)') as HTMLTextAreaElement).value).toBe('');
+    expect(screen.getByText(/Don't include internal URLs, client names, credentials, or org-specific details/)).toBeInTheDocument();
+    expect(screen.getByText(/Images must use absolute\s+URLs/)).toBeInTheDocument();
+  });
+
+  it('switching back to GitHub hides the textarea', () => {
+    setup(makeProject());
+    switchToManual();
+    fireEvent.click(screen.getByRole('button', { name: 'GitHub' }));
+    expect(screen.queryByLabelText('Manual README (Markdown)')).toBeNull();
+  });
+
+  it('opens on Manual with the stored manual text for a manual project', () => {
+    render(
+      <ProjectForm
+        project={makeProject()}
+        readme={makeStatus({ source: 'manual', manual_markdown: '# Sanitized', manual_updated_at: hoursAgo(1) })}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Manual' })).toHaveAttribute('aria-pressed', 'true');
+    expect((screen.getByLabelText('Manual README (Markdown)') as HTMLTextAreaElement).value).toBe('# Sanitized');
+  });
+
+  it('sends the source and the manual markdown to onSave', async () => {
+    const { onSave } = setup(makeProject());
+    switchToManual();
+    fireEvent.change(screen.getByLabelText('Manual README (Markdown)'), { target: { value: '# Overview' } });
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 'project-1' }), {
+        source: 'manual',
+        manualMarkdown: '# Overview',
+      })
+    );
+  });
+
+  it('sends the GitHub source by default', async () => {
+    const { onSave } = setup(makeProject());
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(expect.anything(), { source: 'github', manualMarkdown: '' })
+    );
+  });
+
+  it('previews the markdown with the public renderer, stripping relative links and images', () => {
+    setup(makeProject());
+    switchToManual();
+    fireEvent.change(screen.getByLabelText('Manual README (Markdown)'), {
+      target: { value: '# Overview\n\n![Diagram](docs/arch.png)\n\nSee [the docs](docs/setup.md).' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+
+    const preview = screen.getByTestId('manual-readme-preview');
+    expect(preview.querySelector('h1')).toHaveTextContent('Overview');
+    expect(preview.querySelector('img')).toBeNull();
+    expect(preview.querySelector('a')).toBeNull();
+    expect(preview).toHaveTextContent('Diagram');
+    expect(preview).toHaveTextContent('See the docs.');
+    expect(screen.queryByLabelText('Manual README (Markdown)')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Write' }));
+    expect((screen.getByLabelText('Manual README (Markdown)') as HTMLTextAreaElement).value).toContain('# Overview');
+  });
+
+  it('shows a placeholder when previewing an empty manual README', () => {
+    setup(makeProject());
+    switchToManual();
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+    expect(screen.getByTestId('manual-readme-preview')).toHaveTextContent('Nothing to preview yet.');
+  });
+});
+
+describe('ProjectsManagerClient - manual README status and save', () => {
+  beforeEach(() => {
+    vi.mocked(upsertProject).mockReset();
+    vi.mocked(refreshAllProjectReadmes).mockReset();
+  });
+
+  it('shows "Manual README · updated …" for a manual project, even without a repo_url', () => {
+    render(
+      <ProjectsManagerClient
+        initialProjects={[makeFullProject({ id: 'a', bg_color: '#123456', repo_url: null })]}
+        initialReadmeStatuses={{ a: makeStatus({ source: 'manual', manual_markdown: '# Hi', manual_updated_at: hoursAgo(3) }) }}
+      />
+    );
+    expect(screen.getByTestId('readme-status')).toHaveTextContent(/^Manual README · updated 3 hours ago$/);
+  });
+
+  it('shows "Manual README empty" for a manual project with no text, ignoring old GitHub errors', () => {
+    render(
+      <ProjectsManagerClient
+        initialProjects={[makeFullProject({ id: 'a', bg_color: '#123456', repo_url: 'https://github.com/org/x' })]}
+        initialReadmeStatuses={{ a: makeStatus({ source: 'manual', last_error: 'no_access' }) }}
+      />
+    );
+    const status = screen.getByTestId('readme-status');
+    expect(status).toHaveTextContent(/^Manual README empty$/);
+    expect(status.className).not.toContain('text-amber-600');
+  });
+
+  it('updates the row status in place after saving a manual README', async () => {
+    vi.mocked(upsertProject).mockResolvedValue({
+      readme: {
+        outcome: 'skipped_manual',
+        status: makeStatus({ source: 'manual', manual_markdown: '# Hi', manual_updated_at: new Date().toISOString() }),
+      },
+    });
+    render(<ProjectsManagerClient initialProjects={[makeFullProject({ id: 'a', bg_color: '#123456' })]} />);
+    expect(screen.queryByTestId('readme-status')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Manual' }));
+    fireEvent.change(screen.getByLabelText('Manual README (Markdown)'), { target: { value: '# Hi' } });
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(screen.getByTestId('readme-status')).toHaveTextContent(/Manual README · updated/));
+    expect(upsertProject).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), {
+      source: 'manual',
+      manualMarkdown: '# Hi',
+    });
+    expect(screen.queryByRole('button', { name: /^save$/i })).toBeNull();
+  });
+
+  it('lists manual projects as skipped in the Refresh READMEs summary', async () => {
+    vi.mocked(refreshAllProjectReadmes).mockResolvedValue([
+      { projectId: 'a', name: 'Qraving', outcome: 'ok' },
+      { projectId: 'b', name: 'Org Dashboard', outcome: 'skipped_manual' },
+      { projectId: 'c', name: 'Voting App', outcome: 'error', reason: 'no_access' },
+    ]);
+    render(<ProjectsManagerClient initialProjects={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh READMEs' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Refreshed 1 · Skipped 1 (manual): Org Dashboard · Failed 1: Voting App (no access)'
+    );
   });
 });
