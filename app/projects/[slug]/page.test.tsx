@@ -1,12 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import ProjectPage, { generateMetadata } from './page';
+import { fetchStoredReadme } from '@/lib/actions/projectReadmes';
 import { fetchVisibleProjectBySlug } from '@/lib/actions/projects';
-import { getProjectReadme, type ProjectReadme } from '@/lib/github/readme';
-import type { Project } from '@/lib/supabase/types';
+import type { Project, ProjectReadmeRow } from '@/lib/supabase/types';
 
 vi.mock('@/lib/actions/projects', () => ({ fetchVisibleProjectBySlug: vi.fn() }));
-vi.mock('@/lib/github/readme', () => ({ getProjectReadme: vi.fn() }));
+vi.mock('@/lib/actions/projectReadmes', () => ({ fetchStoredReadme: vi.fn() }));
 
 const notFoundError = new Error('NEXT_NOT_FOUND');
 vi.mock('next/navigation', () => ({
@@ -14,6 +14,8 @@ vi.mock('next/navigation', () => ({
     throw notFoundError;
   }),
 }));
+
+const fetchMock = vi.fn();
 
 const project: Project = {
   id: 'p1',
@@ -31,14 +33,18 @@ const project: Project = {
   updated_at: '2026-01-01T00:00:00.000Z',
 };
 
-const readme: ProjectReadme = {
+const readme: ProjectReadmeRow = {
+  project_id: 'p1',
+  markdown: '# Rhubarb README\n\nHello from GitHub.',
   owner: 'o',
   repo: 'rhubarb',
   branch: 'main',
-  isPrivate: false,
-  htmlUrl: 'https://github.com/o/rhubarb',
-  markdown: '# Rhubarb README\n\nHello from GitHub.',
-  readmePath: 'README.md',
+  is_private: false,
+  html_url: 'https://github.com/o/rhubarb',
+  readme_path: 'README.md',
+  fetched_at: '2026-10-01T00:00:00.000Z',
+  last_attempt_at: '2026-10-01T00:00:00.000Z',
+  last_error: null,
 };
 
 const params = (slug = 'rhubarb') => ({ params: Promise.resolve({ slug }) });
@@ -50,7 +56,13 @@ async function renderPage(slug?: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(fetchVisibleProjectBySlug).mockResolvedValue(project);
-  vi.mocked(getProjectReadme).mockResolvedValue(readme);
+  vi.mocked(fetchStoredReadme).mockResolvedValue(readme);
+  fetchMock.mockReset();
+  vi.stubGlobal('fetch', fetchMock);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('ProjectPage', () => {
@@ -62,21 +74,33 @@ describe('ProjectPage', () => {
     expect(screen.getByTestId('project-hero-cover')).toHaveStyle({ backgroundColor: '#123456' });
   });
 
-  it('shows the README when available instead of the description', async () => {
+  it('shows the stored README instead of the description', async () => {
     await renderPage();
+    expect(fetchStoredReadme).toHaveBeenCalledWith('p1');
     expect(screen.getByRole('heading', { name: 'Rhubarb README' })).toBeInTheDocument();
     expect(screen.queryByTestId('project-description')).toBeNull();
   });
 
-  it('falls back to project_description when the README fetch fails', async () => {
-    vi.mocked(getProjectReadme).mockResolvedValue(null);
+  it('never calls GitHub', async () => {
+    await renderPage();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to project_description when no README is stored', async () => {
+    vi.mocked(fetchStoredReadme).mockResolvedValue(null);
     await renderPage();
     expect(screen.getByTestId('project-description')).toHaveTextContent('First line Second line');
     expect(screen.getByTestId('project-description').className).toContain('whitespace-pre-line');
   });
 
+  it('falls back to project_description when reading the stored README fails', async () => {
+    vi.mocked(fetchStoredReadme).mockRejectedValue(new Error('relation does not exist'));
+    await renderPage();
+    expect(screen.getByTestId('project-description')).toBeInTheDocument();
+  });
+
   it('falls back to project_description when the repo has no README', async () => {
-    vi.mocked(getProjectReadme).mockResolvedValue({ ...readme, markdown: null });
+    vi.mocked(fetchStoredReadme).mockResolvedValue({ ...readme, markdown: null });
     await renderPage();
     expect(screen.getByTestId('project-description')).toBeInTheDocument();
   });
@@ -84,7 +108,7 @@ describe('ProjectPage', () => {
   it('renders the hero only when there is no README and no description', async () => {
     vi.mocked(fetchVisibleProjectBySlug).mockResolvedValue({ ...project, repo_url: null, project_description: '  ' });
     await renderPage();
-    expect(getProjectReadme).not.toHaveBeenCalled();
+    expect(fetchStoredReadme).not.toHaveBeenCalled();
     expect(screen.queryByTestId('project-description')).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'Rhubarb' })).toBeInTheDocument();
   });
@@ -95,10 +119,28 @@ describe('ProjectPage', () => {
   });
 
   it('hides "View on GitHub" for a private repo', async () => {
-    vi.mocked(getProjectReadme).mockResolvedValue({ ...readme, isPrivate: true });
+    vi.mocked(fetchStoredReadme).mockResolvedValue({ ...readme, is_private: true });
     await renderPage();
     expect(screen.queryByRole('link', { name: /view on github/i })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Rhubarb README' })).toBeInTheDocument();
+  });
+
+  it('hides "View on GitHub" when only a failed fetch has been stored', async () => {
+    vi.mocked(fetchStoredReadme).mockResolvedValue({
+      ...readme,
+      markdown: null,
+      owner: null,
+      repo: null,
+      branch: null,
+      is_private: null,
+      html_url: null,
+      readme_path: null,
+      fetched_at: null,
+      last_error: 'no_access',
+    });
+    await renderPage();
+    expect(screen.queryByRole('link', { name: /view on github/i })).toBeNull();
+    expect(screen.getByTestId('project-description')).toBeInTheDocument();
   });
 
   it('hides "View on GitHub" when there is no repo URL', async () => {

@@ -33,7 +33,7 @@ describe('findAdminWriteScopingViolations against the real migrations directory'
     expect(findAdminWriteScopingViolations()).toEqual([]);
   });
 
-  it('resolves each of the six admin-scoped tables to the owner-email using clause', () => {
+  it('resolves each admin-scoped table to the owner-email using clause', () => {
     const policies = getEffectiveAdminWritePolicies();
     for (const table of ADMIN_SCOPED_TABLES) {
       expect(policies[table]?.using).toBe(ADMIN_EMAIL_USING_CLAUSE);

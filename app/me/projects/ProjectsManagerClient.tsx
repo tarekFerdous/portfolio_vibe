@@ -3,19 +3,53 @@
 import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { ImageUploadZone } from '@/components/admin/ImageUploadZone';
+import { refreshAllProjectReadmes, type ReadmeRefreshSummaryEntry } from '@/lib/actions/projectReadmes';
 import { upsertProject, deleteProject, reorderProjects, uploadProjectCover, deleteProjectCover, setProjectVisibility } from '@/lib/actions/projects';
 import { colorForId, pickRandomColor } from '@/lib/colors';
 import { parseGitHubRepoUrl } from '@/lib/github/repoUrl';
-import type { Project } from '@/lib/supabase/types';
+import type { Project, ReadmeErrorReason, ReadmeStatus } from '@/lib/supabase/types';
+import { formatRelativeTime } from '@/lib/utils/relativeTime';
 import { isValidSlug, slugify } from '@/lib/utils/slug';
 
 interface Props {
   initialProjects: Project[];
+  initialReadmeStatuses?: Record<string, ReadmeStatus>;
   fetchError?: string | null;
 }
 
 function getErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
+}
+
+const README_ERROR_LABELS: Record<ReadmeErrorReason, string> = {
+  no_access: 'no access',
+  rate_limited: 'rate limited',
+  network: 'network error',
+};
+
+function readmeStatusText(status: ReadmeStatus | undefined): string {
+  if (!status) return 'README not fetched yet';
+  const fetched = status.fetched_at
+    ? status.has_markdown
+      ? `README fetched ${formatRelativeTime(status.fetched_at)}`
+      : 'No README'
+    : null;
+  if (status.last_error) {
+    const failed = `Fetch failed: ${README_ERROR_LABELS[status.last_error]}`;
+    return fetched ? `${failed} · ${fetched}` : failed;
+  }
+  return fetched ?? 'README not fetched yet';
+}
+
+function formatRefreshSummary(summary: ReadmeRefreshSummaryEntry[]): string {
+  if (summary.length === 0) return 'No projects have a repo URL.';
+  const failed = summary.filter((entry) => entry.outcome === 'error');
+  const refreshed = `Refreshed ${summary.length - failed.length}`;
+  if (failed.length === 0) return refreshed;
+  const failures = failed
+    .map((entry) => `${entry.name} (${README_ERROR_LABELS[entry.reason ?? 'network']})`)
+    .join(', ');
+  return `${refreshed} · Failed ${failed.length}: ${failures}`;
 }
 
 // Keep in sync with the `projects_summary_max_length` check constraint in
@@ -100,7 +134,8 @@ export function ProjectForm({
   takenSlugs = [],
 }: {
   project: EditingProject;
-  onSave: (p: EditingProject) => Promise<void>;
+  /** Resolves with a warning to show instead of "Saved!" when the save succeeded only partially. */
+  onSave: (p: EditingProject) => Promise<string | void>;
   onCancel: () => void;
   takenSlugs?: string[];
 }) {
@@ -116,6 +151,7 @@ export function ProjectForm({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveWarning, setSaveWarning] = useState<string | null>(null);
 
   async function handleSave() {
     const validationError = validateProject(values, takenSlugs);
@@ -125,9 +161,14 @@ export function ProjectForm({
     }
     setSaving(true);
     setSaveError(null);
+    setSaveWarning(null);
     try {
-      await onSave({ ...values, repo_url: values.repo_url?.trim() || null });
+      const warning = await onSave({ ...values, repo_url: values.repo_url?.trim() || null });
       setSaving(false);
+      if (warning) {
+        setSaveWarning(warning);
+        return;
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -254,6 +295,11 @@ export function ProjectForm({
           Cancel
         </button>
         {saved && !saveError && <span className="text-green-600 dark:text-green-400 text-xs">Saved!</span>}
+        {saveWarning && !saveError && (
+          <span role="status" className="text-amber-600 dark:text-amber-400 text-xs">
+            {saveWarning}
+          </span>
+        )}
         {saveError && (
           <span role="alert" className="text-red-500 dark:text-red-400 text-xs">
             {saveError}
@@ -264,8 +310,12 @@ export function ProjectForm({
   );
 }
 
-export function ProjectsManagerClient({ initialProjects, fetchError = null }: Props) {
+export function ProjectsManagerClient({ initialProjects, initialReadmeStatuses = {}, fetchError = null }: Props) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [readmeStatuses, setReadmeStatuses] = useState<Record<string, ReadmeStatus>>(initialReadmeStatuses);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshSummary, setRefreshSummary] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [reorderError, setReorderError] = useState<string | null>(null);
@@ -307,13 +357,46 @@ export function ProjectsManagerClient({ initialProjects, fetchError = null }: Pr
     });
   }
 
-  async function handleSave(updated: EditingProject) {
-    await upsertProject(updated);
+  function setReadmeStatus(id: string, status: ReadmeStatus | null | undefined) {
+    if (status === undefined) return;
+    setReadmeStatuses((prev) => {
+      const next = { ...prev };
+      if (status) {
+        next[id] = status;
+      } else {
+        delete next[id];
+      }
+      return next;
+    });
+  }
+
+  async function handleSave(updated: EditingProject): Promise<string | void> {
+    const { readme } = await upsertProject(updated);
     setProjects((prev) =>
       prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
     );
     setRowError(updated.id, null);
+    setReadmeStatus(updated.id, readme?.status);
+    if (readme?.outcome === 'error') {
+      // Keep the form open so the amber note is visible next to the Save button.
+      return `Saved, but the README couldn't be fetched: ${README_ERROR_LABELS[readme.reason ?? 'network']}`;
+    }
     setExpandedId(null);
+  }
+
+  async function handleRefreshReadmes() {
+    setRefreshing(true);
+    setRefreshSummary(null);
+    setRefreshError(null);
+    try {
+      const summary = await refreshAllProjectReadmes();
+      for (const entry of summary) setReadmeStatus(entry.projectId, entry.status);
+      setRefreshSummary(formatRefreshSummary(summary));
+    } catch (err) {
+      setRefreshError(getErrorMessage(err, 'Failed to refresh READMEs.'));
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   async function handleDelete(project: Project) {
@@ -392,7 +475,25 @@ export function ProjectsManagerClient({ initialProjects, fetchError = null }: Pr
         </p>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {refreshSummary && (
+          <p role="status" className="mr-auto text-sm text-gray-600 dark:text-gray-400">
+            {refreshSummary}
+          </p>
+        )}
+        {refreshError && (
+          <p role="alert" className="mr-auto text-sm text-red-500 dark:text-red-400">
+            {refreshError}
+          </p>
+        )}
+        <button
+          onClick={handleRefreshReadmes}
+          disabled={refreshing}
+          className="rounded-full px-5 py-2 text-sm border border-black/[0.1] dark:border-white/[0.1] text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors disabled:opacity-50"
+          style={{ fontFamily: 'var(--font-recursive)' }}
+        >
+          {refreshing ? 'Refreshing READMEs…' : 'Refresh READMEs'}
+        </button>
         <button
           onClick={handleNewProject}
           className="rounded-full px-5 py-2 text-sm bg-gray-900 dark:bg-gray-50 text-gray-50 dark:text-gray-900 hover:opacity-80 transition-opacity"
@@ -466,6 +567,19 @@ export function ProjectsManagerClient({ initialProjects, fetchError = null }: Pr
                           Delete
                         </button>
                       </div>
+
+                      {project.repo_url && (
+                        <p
+                          data-testid="readme-status"
+                          className={`mt-1 pl-7 text-xs ${
+                            readmeStatuses[project.id]?.last_error
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-gray-500 dark:text-gray-400'
+                          }`}
+                        >
+                          {readmeStatusText(readmeStatuses[project.id])}
+                        </p>
+                      )}
 
                       {rowErrors[project.id] && (
                         <p role="alert" className="mt-2 text-xs text-red-500 dark:text-red-400">

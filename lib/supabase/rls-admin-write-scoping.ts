@@ -4,9 +4,8 @@ import { join } from 'node:path';
 const DEFAULT_MIGRATIONS_DIR = join(process.cwd(), 'supabase', 'migrations');
 
 /**
- * Tables gated by migration 010's owner-email RLS policy. Public commenter
- * sign-in (this PRD) intentionally adds no new tables, so this list should
- * never need to change as part of the comments feature.
+ * Tables gated by migration 010's owner-email RLS policy (plus later admin-only
+ * tables that reuse it, e.g. project_readmes from migration 021).
  */
 export const ADMIN_SCOPED_TABLES = [
   'intro',
@@ -15,6 +14,7 @@ export const ADMIN_SCOPED_TABLES = [
   'posts',
   'post_blocks',
   'contacts',
+  'project_readmes',
 ] as const;
 
 export type AdminScopedTable = (typeof ADMIN_SCOPED_TABLES)[number];
@@ -31,7 +31,7 @@ const STATEMENT_PATTERN =
 
 /**
  * Replays every `drop policy` / `create policy ... for all` statement that
- * targets one of the six admin-scoped tables, across all migration files in
+ * targets one of the admin-scoped tables, across all migration files in
  * filename order, to determine the RLS `using` clause each table would
  * actually end up with if the migrations ran against a fresh database.
  *

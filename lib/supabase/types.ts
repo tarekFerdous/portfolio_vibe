@@ -30,6 +30,30 @@ export type Project = {
   updated_at: string;
 };
 
+export type ReadmeErrorReason = 'no_access' | 'rate_limited' | 'network';
+
+export type ProjectReadmeRow = {
+  project_id: string;
+  /** Null when the repo has no README (or no fetch has succeeded yet). */
+  markdown: string | null;
+  owner: string | null;
+  repo: string | null;
+  branch: string | null;
+  is_private: boolean | null;
+  html_url: string | null;
+  readme_path: string | null;
+  fetched_at: string | null;
+  last_attempt_at: string | null;
+  last_error: ReadmeErrorReason | null;
+};
+
+/** What the admin Projects manager needs to show a row's README status. */
+export type ReadmeStatus = {
+  fetched_at: string | null;
+  last_error: ReadmeErrorReason | null;
+  has_markdown: boolean;
+};
+
 export type PostStatus = 'draft' | 'published';
 
 export type Post = {

@@ -3,11 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ProjectHero } from '@/components/projects/ProjectHero';
 import { ProjectReadme } from '@/components/projects/ProjectReadme';
+import { fetchStoredReadme } from '@/lib/actions/projectReadmes';
 import { fetchVisibleProjectBySlug } from '@/lib/actions/projects';
-import { getProjectReadme } from '@/lib/github/readme';
-
-// README content is fetched live from GitHub; refresh roughly hourly.
-export const revalidate = 3600;
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -23,8 +20,10 @@ export default async function ProjectPage({ params }: PageProps) {
   const project = await fetchVisibleProjectBySlug(slug);
   if (!project) notFound();
 
-  const readme = project.repo_url ? await getProjectReadme(project.repo_url) : null;
-  const githubUrl = readme && !readme.isPrivate ? readme.htmlUrl : null;
+  // Rendered from the stored copy only; the admin refreshes it from GitHub. A failed
+  // read falls back to the description rather than erroring the page.
+  const readme = project.repo_url ? await fetchStoredReadme(project.id).catch(() => null) : null;
+  const githubUrl = readme?.is_private === false ? readme.html_url : null;
   const description = project.project_description.trim();
 
   return (
@@ -41,15 +40,15 @@ export default async function ProjectPage({ params }: PageProps) {
         <ProjectHero project={project} githubUrl={githubUrl} />
 
         <div className="mt-12">
-          {readme?.markdown ? (
+          {readme?.markdown && readme.owner && readme.repo && readme.branch ? (
             <ProjectReadme
               markdown={readme.markdown}
               context={{
                 owner: readme.owner,
                 repo: readme.repo,
                 branch: readme.branch,
-                readmePath: readme.readmePath,
-                isPrivate: readme.isPrivate,
+                readmePath: readme.readme_path ?? 'README.md',
+                isPrivate: readme.is_private ?? true,
               }}
             />
           ) : (

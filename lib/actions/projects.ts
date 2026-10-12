@@ -2,7 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { deleteImage, uploadImage } from './images';
+import { refreshProjectReadme, type ReadmeRefreshResult } from './projectReadmes';
 import type { Project } from '@/lib/supabase/types';
+
+export type SaveProjectResult = {
+  /** Set when the save added, changed, or removed repo_url and so re-synced the stored README. */
+  readme: ReadmeRefreshResult | null;
+};
 
 const UNIQUE_VIOLATION = '23505';
 const SLUG_TAKEN_MESSAGE = 'That slug is already used by another project.';
@@ -43,13 +49,29 @@ export async function setProjectVisibility(id: string, visibility: Project['visi
   if (error) throw new Error(error.message);
 }
 
-export async function upsertProject(project: Omit<Project, 'created_at' | 'updated_at'>): Promise<void> {
+export async function upsertProject(project: Omit<Project, 'created_at' | 'updated_at'>): Promise<SaveProjectResult> {
   const supabase = await createClient();
+  const { data: existing, error: lookupError } = await supabase
+    .from('projects')
+    .select('repo_url')
+    .eq('id', project.id)
+    .maybeSingle();
+  if (lookupError) throw new Error(lookupError.message);
+
   const { error } = await supabase.from('projects').upsert({ ...project, updated_at: new Date().toISOString() });
   if (error?.code === UNIQUE_VIOLATION && error.message.includes('slug')) {
     throw new Error(SLUG_TAKEN_MESSAGE);
   }
   if (error) throw new Error(error.message);
+
+  // Saving other fields leaves the stored README alone; only a repo_url change re-syncs it.
+  if ((project.repo_url ?? null) === (existing?.repo_url ?? null)) return { readme: null };
+  try {
+    return { readme: await refreshProjectReadme(project.id) };
+  } catch {
+    // The project itself saved; a README sync failure must never fail the save.
+    return { readme: { outcome: 'error', reason: 'network' } };
+  }
 }
 
 export async function deleteProject(id: string, imageUrl: string | null): Promise<void> {

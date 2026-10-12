@@ -8,7 +8,10 @@ import {
   deleteProject,
   reorderProjects,
 } from './projects';
+import { refreshProjectReadme } from './projectReadmes';
 import type { Project } from '@/lib/supabase/types';
+
+vi.mock('./projectReadmes', () => ({ refreshProjectReadme: vi.fn() }));
 
 const allProjects: Project[] = [
   {
@@ -63,6 +66,11 @@ vi.mock('@/lib/supabase/server', () => ({
 
 beforeEach(() => {
   mockSupabase.from.mockClear();
+  vi.mocked(refreshProjectReadme).mockReset();
+  vi.mocked(refreshProjectReadme).mockResolvedValue({
+    outcome: 'ok',
+    status: { fetched_at: '2026-10-01T00:00:00.000Z', last_error: null, has_markdown: true },
+  });
 });
 
 describe('fetchProjects', () => {
@@ -151,9 +159,53 @@ describe('upsertProject', () => {
     (builder.upsert as ReturnType<typeof vi.fn>).mockReturnValueOnce(
       Promise.resolve({ data: null, error: { message: 'upsert failed' } })
     );
-    mockSupabase.from.mockReturnValueOnce(builder);
+    mockSupabase.from.mockReturnValueOnce(builder).mockReturnValueOnce(builder);
 
     await expect(upsertProject(baseProject)).rejects.toThrow('upsert failed');
+  });
+
+  function withStoredRepoUrl(repoUrl: string | null) {
+    mockSupabase.from.mockReturnValueOnce(makeQueryBuilder([{ ...allProjects[0], repo_url: repoUrl }]));
+  }
+
+  it('fetches the README when a repo_url is added', async () => {
+    withStoredRepoUrl(null);
+    const result = await upsertProject({ ...baseProject, repo_url: 'https://github.com/o/r' });
+
+    expect(refreshProjectReadme).toHaveBeenCalledWith('a');
+    expect(result.readme).toMatchObject({ outcome: 'ok' });
+  });
+
+  it('fetches the README when the repo_url changes', async () => {
+    withStoredRepoUrl('https://github.com/o/old');
+    await upsertProject({ ...baseProject, repo_url: 'https://github.com/o/new' });
+
+    expect(refreshProjectReadme).toHaveBeenCalledWith('a');
+  });
+
+  it('re-syncs (deletes) the stored README when the repo_url is removed', async () => {
+    vi.mocked(refreshProjectReadme).mockResolvedValue({ outcome: 'removed', status: null });
+    withStoredRepoUrl('https://github.com/o/r');
+    const result = await upsertProject({ ...baseProject, repo_url: null });
+
+    expect(refreshProjectReadme).toHaveBeenCalledWith('a');
+    expect(result.readme).toEqual({ outcome: 'removed', status: null });
+  });
+
+  it('leaves the stored README alone when the repo_url is unchanged', async () => {
+    withStoredRepoUrl('https://github.com/o/r');
+    const result = await upsertProject({ ...baseProject, name: 'Renamed', repo_url: 'https://github.com/o/r' });
+
+    expect(refreshProjectReadme).not.toHaveBeenCalled();
+    expect(result.readme).toBeNull();
+  });
+
+  it('still saves when the README sync throws', async () => {
+    vi.mocked(refreshProjectReadme).mockRejectedValue(new Error('db down'));
+    withStoredRepoUrl(null);
+    const result = await upsertProject({ ...baseProject, repo_url: 'https://github.com/o/r' });
+
+    expect(result.readme).toEqual({ outcome: 'error', reason: 'network' });
   });
 
   it('turns a slug unique-violation into a readable error', async () => {
@@ -164,7 +216,7 @@ describe('upsertProject', () => {
         error: { code: '23505', message: 'duplicate key value violates unique constraint "projects_slug_key"' },
       })
     );
-    mockSupabase.from.mockReturnValueOnce(builder);
+    mockSupabase.from.mockReturnValueOnce(builder).mockReturnValueOnce(builder);
 
     await expect(upsertProject(baseProject)).rejects.toThrow('That slug is already used by another project.');
   });

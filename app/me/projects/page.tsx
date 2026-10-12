@@ -1,6 +1,7 @@
+import { fetchReadmeStatuses } from '@/lib/actions/projectReadmes';
 import { fetchProjects } from '@/lib/actions/projects';
 import { ProjectsManagerClient } from './ProjectsManagerClient';
-import type { Project } from '@/lib/supabase/types';
+import type { Project, ReadmeStatus } from '@/lib/supabase/types';
 
 export default async function ProjectsPage() {
   let projects: Project[] = [];
@@ -9,6 +10,12 @@ export default async function ProjectsPage() {
     projects = await fetchProjects();
   } catch (err) {
     fetchError = err instanceof Error ? err.message : 'Failed to load projects.';
+  }
+  let readmeStatuses: Record<string, ReadmeStatus> = {};
+  try {
+    readmeStatuses = await fetchReadmeStatuses();
+  } catch {
+    // Statuses are informational; rows just show "README not fetched yet".
   }
 
   return (
@@ -19,7 +26,7 @@ export default async function ProjectsPage() {
       >
         Projects
       </h1>
-      <ProjectsManagerClient initialProjects={projects} fetchError={fetchError} />
+      <ProjectsManagerClient initialProjects={projects} initialReadmeStatuses={readmeStatuses} fetchError={fetchError} />
     </div>
   );
 }

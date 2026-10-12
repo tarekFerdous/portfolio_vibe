@@ -1,18 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ProjectForm, ProjectsManagerClient } from './ProjectsManagerClient';
+import { refreshAllProjectReadmes, type ReadmeRefreshSummaryEntry } from '@/lib/actions/projectReadmes';
 import { setProjectVisibility, deleteProject, reorderProjects, upsertProject } from '@/lib/actions/projects';
 import { colorForId, pickRandomColor, projectColorPalette } from '@/lib/colors';
 import type { DropResult } from '@hello-pangea/dnd';
-import type { Project } from '@/lib/supabase/types';
+import type { Project, ReadmeStatus } from '@/lib/supabase/types';
 
 vi.mock('@/lib/actions/projects', () => ({
   uploadProjectCover: vi.fn().mockResolvedValue('https://example.com/cover.jpg'),
   deleteProjectCover: vi.fn().mockResolvedValue(undefined),
-  upsertProject: vi.fn().mockResolvedValue(undefined),
+  upsertProject: vi.fn().mockResolvedValue({ readme: null }),
   deleteProject: vi.fn().mockResolvedValue(undefined),
   reorderProjects: vi.fn().mockResolvedValue(undefined),
   setProjectVisibility: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/lib/actions/projectReadmes', () => ({
+  refreshAllProjectReadmes: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('@/lib/colors', async (importOriginal) => {
@@ -413,5 +418,176 @@ describe('ProjectForm - GitHub repo URL', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Repo URL must look like https://github.com/owner/repo.');
     expect(onSave).not.toHaveBeenCalled();
+  });
+});
+
+const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+describe('ProjectsManagerClient - Refresh READMEs', () => {
+  beforeEach(() => {
+    vi.mocked(refreshAllProjectReadmes).mockReset();
+  });
+
+  it('runs a refresh and shows a summary with failures and reasons', async () => {
+    vi.mocked(refreshAllProjectReadmes).mockResolvedValue([
+      { projectId: 'a', name: 'Qraving', outcome: 'ok' },
+      { projectId: 'b', name: 'Rhubarb', outcome: 'no_readme' },
+      { projectId: 'c', name: 'Enki', outcome: 'ok' },
+      { projectId: 'd', name: 'Voting App', outcome: 'error', reason: 'no_access' },
+    ]);
+    render(<ProjectsManagerClient initialProjects={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh READMEs' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Refreshed 3 · Failed 1: Voting App (no access)');
+    expect(refreshAllProjectReadmes).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables the button with a progress label while the refresh runs', async () => {
+    let resolveRefresh: (summary: ReadmeRefreshSummaryEntry[]) => void = () => {};
+    vi.mocked(refreshAllProjectReadmes).mockReturnValue(
+      new Promise((resolve) => {
+        resolveRefresh = resolve;
+      })
+    );
+    render(<ProjectsManagerClient initialProjects={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh READMEs' }));
+
+    expect(await screen.findByRole('button', { name: /refreshing readmes/i })).toBeDisabled();
+
+    await act(async () => resolveRefresh([{ projectId: 'a', name: 'Qraving', outcome: 'ok' }]));
+
+    expect(screen.getByRole('button', { name: 'Refresh READMEs' })).toBeEnabled();
+    expect(screen.getByRole('status')).toHaveTextContent('Refreshed 1');
+  });
+
+  it('shows an inline error when the refresh itself fails', async () => {
+    vi.mocked(refreshAllProjectReadmes).mockRejectedValue(new Error('Refresh failed'));
+    render(<ProjectsManagerClient initialProjects={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh READMEs' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Refresh failed');
+  });
+
+  it('updates row statuses after a refresh without a reload', async () => {
+    vi.mocked(refreshAllProjectReadmes).mockResolvedValue([
+      {
+        projectId: 'a',
+        name: 'Qraving',
+        outcome: 'error',
+        reason: 'rate_limited',
+        status: { fetched_at: null, last_error: 'rate_limited', has_markdown: false },
+      },
+    ]);
+    const projects = [makeFullProject({ id: 'a', name: 'Qraving', bg_color: '#123456', repo_url: 'https://github.com/o/q' })];
+    render(<ProjectsManagerClient initialProjects={projects} />);
+    expect(screen.getByTestId('readme-status')).toHaveTextContent('README not fetched yet');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh READMEs' }));
+
+    await waitFor(() => expect(screen.getByTestId('readme-status')).toHaveTextContent('Fetch failed: rate limited'));
+  });
+});
+
+describe('ProjectsManagerClient - README status per row', () => {
+  function renderWithStatus(status?: Record<string, ReadmeStatus>) {
+    render(
+      <ProjectsManagerClient
+        initialProjects={[makeFullProject({ id: 'a', bg_color: '#123456', repo_url: 'https://github.com/o/r' })]}
+        initialReadmeStatuses={status}
+      />
+    );
+    return screen.getByTestId('readme-status');
+  }
+
+  it('shows a relative fetched time', () => {
+    const status = renderWithStatus({ a: { fetched_at: hoursAgo(2), last_error: null, has_markdown: true } });
+    expect(status).toHaveTextContent('README fetched 2 hours ago');
+  });
+
+  it('shows "No README" when the repo has none', () => {
+    const status = renderWithStatus({ a: { fetched_at: hoursAgo(2), last_error: null, has_markdown: false } });
+    expect(status).toHaveTextContent(/^No README$/);
+  });
+
+  it.each([
+    ['no_access', 'no access'],
+    ['rate_limited', 'rate limited'],
+    ['network', 'network error'],
+  ] as const)('shows "Fetch failed" for a %s error', (reason, label) => {
+    const status = renderWithStatus({ a: { fetched_at: null, last_error: reason, has_markdown: false } });
+    expect(status).toHaveTextContent(new RegExp(`^Fetch failed: ${label}$`));
+  });
+
+  it('still shows when the README was last fetched after a failure', () => {
+    const status = renderWithStatus({ a: { fetched_at: hoursAgo(2), last_error: 'network', has_markdown: true } });
+    expect(status).toHaveTextContent('Fetch failed: network error · README fetched 2 hours ago');
+  });
+
+  it('shows "README not fetched yet" for a repo with no stored row', () => {
+    expect(renderWithStatus()).toHaveTextContent('README not fetched yet');
+  });
+
+  it('shows no README status for a project without a repo_url', () => {
+    render(<ProjectsManagerClient initialProjects={[makeFullProject({ id: 'a', bg_color: '#123456', repo_url: null })]} />);
+    expect(screen.queryByTestId('readme-status')).toBeNull();
+  });
+});
+
+describe('ProjectsManagerClient - README sync on save', () => {
+  beforeEach(() => {
+    vi.mocked(upsertProject).mockReset();
+  });
+
+  function renderAndEdit(project: Project, statuses?: Record<string, ReadmeStatus>) {
+    render(<ProjectsManagerClient initialProjects={[project]} initialReadmeStatuses={statuses} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+  }
+
+  function saveWithRepoUrl(value: string) {
+    fireEvent.change(screen.getByLabelText('GitHub repo URL'), { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+  }
+
+  it('shows an amber note and keeps the form open when the README fetch fails', async () => {
+    vi.mocked(upsertProject).mockResolvedValue({
+      readme: {
+        outcome: 'error',
+        reason: 'no_access',
+        status: { fetched_at: null, last_error: 'no_access', has_markdown: false },
+      },
+    });
+    renderAndEdit(makeFullProject({ id: 'a', bg_color: '#123456' }));
+    saveWithRepoUrl('https://github.com/o/new');
+
+    const note = await screen.findByText("Saved, but the README couldn't be fetched: no access");
+    expect(note.className).toContain('text-amber-600');
+    expect(screen.queryByText('Saved!')).toBeNull();
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeInTheDocument();
+    expect(screen.getByTestId('readme-status')).toHaveTextContent('Fetch failed: no access');
+  });
+
+  it('closes the form and shows the fresh status after a successful README fetch', async () => {
+    vi.mocked(upsertProject).mockResolvedValue({
+      readme: { outcome: 'ok', status: { fetched_at: new Date().toISOString(), last_error: null, has_markdown: true } },
+    });
+    renderAndEdit(makeFullProject({ id: 'a', bg_color: '#123456' }));
+    saveWithRepoUrl('https://github.com/o/new');
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^save$/i })).toBeNull());
+    expect(screen.getByTestId('readme-status')).toHaveTextContent(/README fetched/);
+  });
+
+  it('clears the status when the repo_url is removed', async () => {
+    vi.mocked(upsertProject).mockResolvedValue({ readme: { outcome: 'removed', status: null } });
+    renderAndEdit(makeFullProject({ id: 'a', bg_color: '#123456', repo_url: 'https://github.com/o/r' }), {
+      a: { fetched_at: hoursAgo(2), last_error: null, has_markdown: true },
+    });
+    saveWithRepoUrl('');
+
+    await waitFor(() => expect(screen.queryByTestId('readme-status')).toBeNull());
+    expect(upsertProject).toHaveBeenCalledWith(expect.objectContaining({ repo_url: null }));
   });
 });
