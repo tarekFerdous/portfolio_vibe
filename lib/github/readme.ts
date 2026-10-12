@@ -19,6 +19,9 @@ function githubHeaders(): HeadersInit {
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
+    // GitHub rejects requests without a User-Agent (403). Node's fetch sends one by
+    // default, but Cloudflare Workers' fetch does not.
+    'User-Agent': 'tarekferdous.me',
   };
   // Server-only: GITHUB_TOKEN is never prefixed NEXT_PUBLIC_, so it can't reach the client bundle.
   const token = process.env.GITHUB_TOKEN?.trim();
