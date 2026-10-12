@@ -57,31 +57,30 @@ export function PostEditorClient({ post, initialBlocks, fetchError }: Props) {
     setSaving(true);
     setSaved(false);
     setSaveError(null);
-    try {
-      await upsertPost({
-        id: postId,
-        title,
-        publish_date: publishDate || null,
-        location: location || null,
-        status,
-        excerpt: excerpt || null,
-        cover_image_url: coverImageUrl,
-        author,
-        blocks: blocks.map((b, i) => ({
-          id: b.id,
-          block_type: b.type,
-          content: b.type === 'text' ? b.content : null,
-          image_url: b.type === 'photo' ? b.image_url : null,
-          display_order: i,
-        })),
-      });
-      setSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      setSaving(false);
-      setSaveError(err instanceof Error ? err.message : 'Failed to save post.');
+    const result = await upsertPost({
+      id: postId,
+      title,
+      publish_date: publishDate || null,
+      location: location || null,
+      status,
+      excerpt: excerpt || null,
+      cover_image_url: coverImageUrl,
+      author,
+      blocks: blocks.map((b, i) => ({
+        id: b.id,
+        block_type: b.type,
+        content: b.type === 'text' ? b.content : null,
+        image_url: b.type === 'photo' ? b.image_url : null,
+        display_order: i,
+      })),
+    });
+    setSaving(false);
+    if (!result.ok) {
+      setSaveError(result.error);
+      return;
     }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   }
 
   return (

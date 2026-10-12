@@ -48,7 +48,7 @@ describe('PostEditorClient - initial fetch error', () => {
 
 describe('PostEditorClient - save', () => {
   it('shows the success confirmation and no error when save succeeds', async () => {
-    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce('post-1');
+    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, id: 'post-1' });
     render(<PostEditorClient post={makePost()} initialBlocks={initialBlocks} />);
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
@@ -58,7 +58,7 @@ describe('PostEditorClient - save', () => {
   });
 
   it('shows a visible error and no success confirmation when save fails', async () => {
-    (upsertPost as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Save failed'));
+    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false, error: 'Save failed' });
     render(<PostEditorClient post={makePost()} initialBlocks={initialBlocks} />);
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
@@ -76,7 +76,7 @@ describe('PostEditorClient - excerpt, author, and cover image', () => {
   });
 
   it('persists entered excerpt and author text on save', async () => {
-    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce('post-1');
+    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, id: 'post-1' });
     render(<PostEditorClient post={makePost()} initialBlocks={initialBlocks} />);
 
     const excerptInput = screen.getByText('Excerpt').nextElementSibling as HTMLTextAreaElement;
@@ -94,7 +94,7 @@ describe('PostEditorClient - excerpt, author, and cover image', () => {
   });
 
   it('uploads a cover image and persists its URL on save', async () => {
-    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce('post-1');
+    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, id: 'post-1' });
     render(<PostEditorClient post={makePost()} initialBlocks={initialBlocks} />);
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;

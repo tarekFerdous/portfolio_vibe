@@ -43,7 +43,7 @@ describe('PostListClient - initial fetch error', () => {
 
 describe('PostListClient - delete', () => {
   it('removes the post from the list on successful delete', async () => {
-    (deletePost as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+    (deletePost as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true });
     render(<PostListClient initialPosts={[makePost()]} />);
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }));
@@ -52,7 +52,7 @@ describe('PostListClient - delete', () => {
   });
 
   it('restores the post and shows a visible inline error when delete fails', async () => {
-    (deletePost as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Delete failed'));
+    (deletePost as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false, error: 'Delete failed' });
     render(<PostListClient initialPosts={[makePost()]} />);
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }));
@@ -74,11 +74,12 @@ describe('PostListClient - delete', () => {
 
 describe('PostListClient - create', () => {
   it('shows a visible error when creating a new post fails', async () => {
-    (upsertPost as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Create failed'));
+    (upsertPost as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false, error: 'Create failed' });
     render(<PostListClient initialPosts={[]} />);
 
     fireEvent.click(screen.getByRole('button', { name: /new post/i }));
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Create failed'));
+    expect(screen.getByRole('button', { name: /new post/i })).toBeEnabled();
   });
 });

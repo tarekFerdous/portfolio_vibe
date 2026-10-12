@@ -27,7 +27,7 @@ export async function fetchPostWithBlocks(id: string): Promise<{ post: Post; blo
   return { post, blocks: blocks ?? [] };
 }
 
-export async function upsertPost(values: {
+type PostValues = {
   id?: string;
   title: string;
   publish_date: string | null;
@@ -37,37 +37,91 @@ export async function upsertPost(values: {
   cover_image_url?: string | null;
   author?: string;
   blocks: Array<{ id?: string; block_type: 'text' | 'photo'; content: string | null; image_url: string | null; display_order: number }>;
-}): Promise<string> {
+};
+
+// Production Next.js hides messages thrown from server actions, so writes return their failure instead.
+export type SavePostResult = { ok: true; id: string } | { ok: false; error: string };
+export type DeletePostResult = { ok: true } | { ok: false; error: string };
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'unknown error';
+}
+
+export async function upsertPost(values: PostValues): Promise<SavePostResult> {
+  try {
+    return { ok: true, id: await savePost(values) };
+  } catch (err) {
+    return { ok: false, error: `Couldn't ${values.id ? 'save' : 'create'} the post: ${errorMessage(err)}` };
+  }
+}
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+const UNIQUE_VIOLATION = '23505';
+const FALLBACK_SLUG = 'untitled-post';
+const SLUG_TAKEN_MESSAGE = 'its URL slug is already used by another post. Try a different title.';
+
+/**
+ * First free slug for `title`: the base slug, else base-2, base-3, …
+ * `excludeId` is the post being saved, so it never collides with its own slug.
+ */
+async function resolveUniqueSlug(supabase: SupabaseClient, title: string, excludeId?: string): Promise<string> {
+  const base = generateSlug(title).replace(/^-+|-+$/g, '') || FALLBACK_SLUG;
+  const { data, error } = await supabase
+    .from('posts')
+    .select('id, slug')
+    .or(`slug.eq.${base},slug.like.${base}-%`);
+  if (error) throw new Error(error.message);
+  const taken = new Set((data ?? []).filter((p) => p.id !== excludeId).map((p) => p.slug));
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n++;
+  return `${base}-${n}`;
+}
+
+/**
+ * Runs a write that may set a slug, resolving the slug again and retrying once
+ * if another save claimed it in between (the unique constraint is the final guard).
+ */
+async function withSlugRetry(write: () => Promise<{ code?: string; message: string } | null>): Promise<void> {
+  let error = await write();
+  if (error?.code === UNIQUE_VIOLATION) error = await write();
+  if (error?.code === UNIQUE_VIOLATION) throw new Error(SLUG_TAKEN_MESSAGE);
+  if (error) throw new Error(error.message);
+}
+
+async function savePost(values: PostValues): Promise<string> {
   const supabase = await createClient();
   const now = new Date().toISOString();
+  const fields = {
+    title: values.title,
+    publish_date: values.publish_date,
+    location: values.location,
+    status: values.status,
+    excerpt: values.excerpt,
+    cover_image_url: values.cover_image_url,
+    author: values.author,
+  };
 
   let postId = values.id;
   if (postId) {
-    const { error } = await supabase.from('posts').update({
-      title: values.title,
-      publish_date: values.publish_date,
-      location: values.location,
-      status: values.status,
-      excerpt: values.excerpt,
-      cover_image_url: values.cover_image_url,
-      author: values.author,
-      updated_at: now,
-    }).eq('id', postId);
-    if (error) throw new Error(error.message);
+    const id = postId;
+    const { data: existing, error: lookupError } = await supabase.from('posts').select('status').eq('id', id).single();
+    if (lookupError) throw new Error(lookupError.message);
+    // A draft's slug follows its title; once published it is frozen so shared links keep working.
+    const slugFollowsTitle = existing.status === 'draft';
+    await withSlugRetry(async () => {
+      const slug = slugFollowsTitle ? { slug: await resolveUniqueSlug(supabase, values.title, id) } : {};
+      const { error } = await supabase.from('posts').update({ ...fields, ...slug, updated_at: now }).eq('id', id);
+      return error;
+    });
   } else {
-    const slug = generateSlug(values.title);
-    const { data, error } = await supabase.from('posts').insert({
-      title: values.title,
-      slug,
-      publish_date: values.publish_date,
-      location: values.location,
-      status: values.status,
-      excerpt: values.excerpt,
-      cover_image_url: values.cover_image_url,
-      author: values.author,
-    }).select('id').single();
-    if (error) throw new Error(error.message);
-    postId = data.id;
+    await withSlugRetry(async () => {
+      const slug = await resolveUniqueSlug(supabase, values.title);
+      const { data, error } = await supabase.from('posts').insert({ ...fields, slug }).select('id').single();
+      if (!error) postId = data.id;
+      return error;
+    });
   }
 
   // Replace all blocks
@@ -89,7 +143,16 @@ export async function upsertPost(values: {
   return postId!;
 }
 
-export async function deletePost(id: string): Promise<void> {
+export async function deletePost(id: string): Promise<DeletePostResult> {
+  try {
+    await removePost(id);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `Couldn't delete the post: ${errorMessage(err)}` };
+  }
+}
+
+async function removePost(id: string): Promise<void> {
   const supabase = await createClient();
   const { data: blocks, error: fetchBlocksError } = await supabase.from('post_blocks').select('image_url').eq('post_id', id);
   if (fetchBlocksError) throw new Error(fetchBlocksError.message);

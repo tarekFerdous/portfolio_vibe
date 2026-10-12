@@ -19,19 +19,19 @@ export function PostListClient({ initialPosts, fetchError }: Props) {
   async function handleNew() {
     setCreating(true);
     setNewPostError(null);
-    try {
-      const id = await upsertPost({
-        title: 'Untitled Post',
-        publish_date: null,
-        location: null,
-        status: 'draft',
-        blocks: [],
-      });
-      window.location.href = `/me/posts/${id}`;
-    } catch (err) {
-      setNewPostError(err instanceof Error ? err.message : 'Failed to create post.');
-      setCreating(false);
+    const result = await upsertPost({
+      title: 'Untitled Post',
+      publish_date: null,
+      location: null,
+      status: 'draft',
+      blocks: [],
+    });
+    if (result.ok) {
+      window.location.href = `/me/posts/${result.id}`;
+      return;
     }
+    setNewPostError(result.error);
+    setCreating(false);
   }
 
   async function handleDelete(id: string, title: string) {
@@ -43,14 +43,10 @@ export function PostListClient({ initialPosts, fetchError }: Props) {
     });
     const previousPosts = posts;
     setPosts((prev) => prev.filter((p) => p.id !== id));
-    try {
-      await deletePost(id);
-    } catch (err) {
+    const result = await deletePost(id);
+    if (!result.ok) {
       setPosts(previousPosts);
-      setDeleteErrors((prev) => ({
-        ...prev,
-        [id]: err instanceof Error ? err.message : 'Failed to delete post.',
-      }));
+      setDeleteErrors((prev) => ({ ...prev, [id]: result.error }));
     }
   }
 
